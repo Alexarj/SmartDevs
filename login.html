@@ -2,19 +2,78 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Login - SmartDevs</title>
-  <link rel="stylesheet" href="css/style.css">
+  <title>SmartDevs - Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+  <style>
+    body { font-family: Arial; background:#f5f5f5; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;}
+    form { background:#fff; padding:20px; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,0.1); width:300px;}
+    input, button { display:block; width:100%; margin-bottom:10px; padding:10px; font-size:14px;}
+    button { background:#0f172a; color:#fff; border:none; cursor:pointer;}
+    button:hover { background:#1e293b;}
+    h2 { text-align:center; margin-top:0; }
+  </style>
 </head>
 <body>
-  <h1>Login</h1>
   <form id="loginForm">
-    <input type="email" placeholder="Email" required>
-    <input type="password" placeholder="Senha" required>
+    <h2>SmartDevs Login</h2>
+    <input type="email" id="email" placeholder="Email" required>
+    <input type="password" id="senha" placeholder="Senha" required>
     <button type="submit">Entrar</button>
+    <button type="button" id="btnCadastrar">Cadastrar</button>
+    <p id="msg" style="color:red;font-size:12px;"></p>
   </form>
-  <p><a href="recuperar.html">Esqueci minha senha</a></p>
-  <p><a href="cadastro.html">Criar conta</a></p>
 
-  <script src="js/main.js"></script>
+  <script>
+    const supabaseUrl = 'https://ynirlpziolginasusolb.supabase.co';
+    const supabaseKey = 'sb_publishable_1cX1yB_sA5aAodDbArwrCw_J6OxoK3l';
+    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+    const loginForm = document.getElementById('loginForm');
+    const btnCadastrar = document.getElementById('btnCadastrar');
+    const msg = document.getElementById('msg');
+
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const senha = document.getElementById('senha').value;
+
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('email', email)
+        .eq('senha', senha)
+        .single();
+
+      if(error || !data) {
+        msg.textContent = "Email ou senha incorretos!";
+        return;
+      }
+
+      localStorage.setItem('usuario_id', data.id);
+      window.location.href = "dashboard.html";
+    });
+
+    btnCadastrar.addEventListener('click', async () => {
+      const email = document.getElementById('email').value;
+      const senha = document.getElementById('senha').value;
+      const nome = prompt("Digite seu nome:");
+
+      if(!nome) return alert("Nome obrigatório!");
+
+      const { data, error } = await supabase
+        .from('usuarios')
+        .insert([{ nome, email, senha }])
+        .select()
+        .single();
+
+      if(error) {
+        msg.textContent = "Erro ao cadastrar: " + error.message;
+        return;
+      }
+
+      alert("Cadastro realizado! Faça login agora.");
+    });
+  </script>
 </body>
 </html>
