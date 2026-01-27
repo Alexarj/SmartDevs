@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartDevs – Conectando talentos iniciantes</title>
+  <style>
+    /* Reset básico */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', Arial, sans-serif;
+    }
+
+    body {
+      background-color: #0f172a;
+      color: #ffffff;
+      line-height: 1.6;
+    }
+
+    a {
+      text-decoration: none;
+      color: inherit;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 40px;
+      background-color: #020617;
+    }
+
+    header h1 {
+      font-size: 28px;
+      color: #3b82f6;
+    }
+
+    header nav a {
+      margin-left: 20px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      background-color: #3b82f6;
+      color: #ffffff;
+      font-weight: bold;
+      transition: 0.3s;
+    }
+
+    header nav a:hover {
+      background-color: #2563eb;
+    }
+
+    /* Banner */
+    .banner {
+      text-align: center;
+      padding: 80px 20px;
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+    }
+
+    .banner h2 {
+      font-size: 36px;
+      margin-bottom: 20px;
+      color: #ffffff;
+    }
+
+    .banner p {
+      font-size: 18px;
+      margin-bottom: 30px;
+      color: #cbd5e1;
+    }
+
+    .banner a {
+      padding: 12px 28px;
+      background-color: #3b82f6;
+      color: #fff;
+      font-weight: bold;
+      border-radius: 8px;
+      transition: 0.3s;
+    }
+
+    .banner a:hover {
+      background-color: #2563eb;
+    }
+
+    /* Projetos */
+    .projects {
+      max-width: 1200px;
+      margin: 40px auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      padding: 0 20px;
+    }
+
+    .project-card {
+      background-color: #1e293b;
+      padding: 20px;
+      border-radius: 12px;
+      transition: transform 0.3s;
+    }
+
+    .project-card:hover {
+      transform: translateY(-5px);
+    }
+
+    .project-card h3 {
+      color: #3b82f6;
+      margin-bottom: 10px;
+    }
+
+    .project-card p {
+      color: #cbd5e1;
+      margin-bottom: 10px;
+    }
+
+    .project-card span {
+      font-size: 14px;
+      color: #94a3b8;
+    }
+
+    .project-card a {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 6px 12px;
+      background-color: #3b82f6;
+      color: #ffffff;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: 0.3s;
+    }
+
+    .project-card a:hover {
+      background-color: #2563eb;
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 20px;
+      background-color: #020617;
+      margin-top: 40px;
+      font-size: 14px;
+      color: #94a3b8;
+    }
+
+    @media (max-width: 600px) {
+      header {
+        flex-direction: column;
+      }
+      header nav {
+        margin-top: 10px;
+      }
+    }
+
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <h1>SmartDevs</h1>
+    <nav>
+      <a href="#">Login</a>
+      <a href="#">Cadastro</a>
+      <a href="#">Recuperar Senha</a>
+    </nav>
+  </header>
+
+  <!-- Banner -->
+  <section class="banner">
+    <h2>Descubra projetos de desenvolvedores iniciantes</h2>
+    <p>Explore ideias incríveis e conecte-se com talentos que estão começando no mundo da programação.</p>
+    <a href="#">Cadastre-se para ver detalhes</a>
+  </section>
+
+  <!-- Projetos em destaque -->
+  <section class="projects">
+    <div class="project-card">
+      <h3>Calculadora de Tarefas</h3>
+      <p>Mini descrição do projeto: Uma calculadora de tarefas para organizar seu dia.</p>
+      <span>Tecnologias: HTML, CSS, JavaScript</span><br>
+      <a href="#">Veja mais – Cadastre-se</a>
+    </div>
+    <div class="project-card">
+      <h3>Blog Pessoal</h3>
+      <p>Mini descrição: Blog simples para compartilhar artigos sobre programação.</p>
+      <span>Tecnologias: React, CSS</span><br>
+      <a href="#">Veja mais – Cadastre-se</a>
+    </div>
+    <div class="project-card">
+      <h3>Jogo da Memória</h3>
+      <p>Mini descrição: Um jogo da memória interativo para testar sua memória.</p>
+      <span>Tecnologias: JavaScript, HTML, CSS</span><br>
+      <a href="#">Veja mais – Cadastre-se</a>
+    </div>
+    <div class="project-card">
+      <h3>Portfólio Digital</h3>
+      <p>Mini descrição: Portfólio online para mostrar projetos de desenvolvimento.</p>
+      <span>Tecnologias: HTML, CSS, Bootstrap</span><br>
+      <a href="#">Veja mais – Cadastre-se</a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    &copy; 2026 SmartDevs. Todos os direitos reservados.
+  </footer>
+
+</body>
+  </html>
