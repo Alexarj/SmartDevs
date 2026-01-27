@@ -4,81 +4,19 @@
   <meta charset="UTF-8">
   <title>SmartDevs - Home</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
   <style>
-    /* CSS integrado */
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f5f5;
-      color: #333;
-      margin: 0;
-      padding: 0;
-    }
-
-    header {
-      background: #0f172a;
-      color: #fff;
-      padding: 20px;
-      text-align: center;
-    }
-
-    nav a {
-      color: #fff;
-      margin: 0 10px;
-      text-decoration: none;
-    }
-
-    h2 {
-      text-align: center;
-      margin: 30px 0 20px;
-    }
-
-    .cards-container {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 20px;
-      padding: 0 20px;
-    }
-
-    .card {
-      background: #fff;
-      border-radius: 10px;
-      width: 250px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-
-    .card h3 {
-      margin-top: 0;
-      color: #0f172a;
-    }
-
-    .card p {
-      font-size: 14px;
-      margin: 10px 0;
-    }
-
-    .card .tech {
-      font-size: 12px;
-      color: #555;
-      margin-bottom: 10px;
-    }
-
-    .card button {
-      padding: 10px;
-      background: #0f172a;
-      color: #fff;
-      border: none;
-      cursor: pointer;
-      border-radius: 5px;
-    }
-
-    .card button:hover {
-      background: #1e293b;
-    }
+    body { font-family: Arial; background:#f5f5f5; margin:0; padding:0;}
+    header { background:#0f172a; color:#fff; padding:20px; text-align:center;}
+    nav a { color:#fff; margin:0 10px; text-decoration:none;}
+    h2 { text-align:center; margin:30px 0 20px;}
+    .cards-container { display:flex; flex-wrap:wrap; justify-content:center; gap:20px; padding:0 20px;}
+    .card { background:#fff; border-radius:10px; width:250px; box-shadow:0 2px 10px rgba(0,0,0,0.1); padding:20px; display:flex; flex-direction:column; justify-content:space-between;}
+    .card h3 { margin-top:0; color:#0f172a;}
+    .card p { font-size:14px; margin:10px 0;}
+    .card .tech { font-size:12px; color:#555; margin-bottom:10px;}
+    .card button { padding:10px; background:#0f172a; color:#fff; border:none; cursor:pointer; border-radius:5px;}
+    .card button:hover { background:#1e293b;}
   </style>
 </head>
 <body>
@@ -86,55 +24,49 @@
     <h1>SmartDevs</h1>
     <nav>
       <a href="login.html">Login</a>
-      <a href="cadastro.html">Cadastro</a>
+      <a href="dashboard.html">Dashboard</a>
     </nav>
   </header>
 
   <main>
     <h2>Projetos em Destaque</h2>
-    <div class="cards-container" id="projetos">
-      <!-- Os cards serão adicionados via JS -->
-    </div>
+    <div class="cards-container" id="projetos"></div>
   </main>
 
   <script>
-    // JS integrado
-    const projetos = [
-      {
-        nome: "Projeto Alpha",
-        descricao: "Um site incrível de portfólio de desenvolvedores.",
-        tech: "HTML, CSS, JS",
-        contato: "mailto:devalpha@email.com"
-      },
-      {
-        nome: "Projeto Beta",
-        descricao: "Aplicativo mobile para organizar tarefas.",
-        tech: "React Native, Firebase",
-        contato: "mailto:devbeta@email.com"
-      },
-      {
-        nome: "Projeto Gamma",
-        descricao: "Plataforma de e-commerce para pequenas empresas.",
-        tech: "React, Node.js, MongoDB",
-        contato: "mailto:devgamma@email.com"
+    // Substitua pelas suas credenciais do Supabase
+    const supabaseUrl = 'SUA_SUPABASE_URL';
+    const supabaseKey = 'SUA_SUPABASE_ANON_KEY';
+    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+
+    const container = document.getElementById('projetos');
+
+    async function carregarProjetos() {
+      const { data: projetos, error } = await supabase
+        .from('projetos')
+        .select('*')
+        .order('criado_em', { ascending: false });
+
+      if (error) {
+        console.error(error);
+        return;
       }
-    ];
 
-    const container = document.getElementById("projetos");
+      container.innerHTML = '';
+      projetos.forEach(projeto => {
+        const card = document.createElement('div');
+        card.classList.add('card');
+        card.innerHTML = `
+          <h3>${projeto.nome}</h3>
+          <p>${projeto.descricao}</p>
+          <div class="tech">Tecnologias: ${projeto.tech}</div>
+          <button onclick="window.location.href='mailto:${projeto.contato}'">Entrar em Contato</button>
+        `;
+        container.appendChild(card);
+      });
+    }
 
-    projetos.forEach(projeto => {
-      const card = document.createElement("div");
-      card.classList.add("card");
-
-      card.innerHTML = `
-        <h3>${projeto.nome}</h3>
-        <p>${projeto.descricao}</p>
-        <div class="tech">Tecnologias: ${projeto.tech}</div>
-        <button onclick="window.location.href='${projeto.contato}'">Entrar em Contato</button>
-      `;
-
-      container.appendChild(card);
-    });
+    carregarProjetos();
   </script>
 </body>
-      </html>
+</html>
