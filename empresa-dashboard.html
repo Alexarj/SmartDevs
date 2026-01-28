@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Empresa</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<h2>Projetos Disponíveis</h2>
+<div id="lista"></div>
+
+<script>
+const sb=supabase.createClient(
+'https://ynirlpziolginasusolb.supabase.co',
+'sb_publishable_1cX1yB_sA5aAodDbArwrCw_J6OxoK3l'
+);
+
+if(!localStorage.getItem('empresa'))location.href='empresa-login.html';
+
+async function load(){
+const {data}=await sb.from('projetos').select('*');
+lista.innerHTML=data.map(p=>`
+<p>
+<b>${p.nome}</b><br>${p.descricao}<br>
+<button onclick="location.href='mailto:${p.contato}'">Contato</button>
+</p>`).join('');
+}
+load();
+</script>
+</body>
+</html>
