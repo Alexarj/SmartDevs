@@ -1,48 +1,141 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Dashboard Dev</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<title>Dashboard Dev | SmartDevs</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #020617;
+  color: #e5e7eb;
+}
+header {
+  padding: 20px;
+  background: #020617;
+  border-bottom: 1px solid #1e293b;
+}
+header h1 {
+  margin: 0;
+}
+main {
+  padding: 20px;
+  max-width: 900px;
+  margin: auto;
+}
+.card {
+  background: #0f172a;
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+input, textarea, button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 6px;
+  border: none;
+}
+button {
+  background: #22c55e;
+  cursor: pointer;
+  font-weight: bold;
+}
+button:hover {
+  background: #16a34a;
+}
+.project {
+  border-bottom: 1px solid #1e293b;
+  padding: 10px 0;
+}
+.logout {
+  background: #ef4444;
+  margin-top: 20px;
+}
+</style>
 </head>
+
 <body>
 
-<h2>Meus Projetos</h2>
+<header>
+  <h1>👨‍💻 Dashboard do Desenvolvedor</h1>
+</header>
 
-<input id="nome" placeholder="Nome">
-<input id="desc" placeholder="Descrição">
-<input id="tech" placeholder="Tech">
-<input id="contato" placeholder="Contato">
-<button onclick="add()">Adicionar</button>
+<main>
 
-<div id="lista"></div>
+<div class="card">
+  <h2>Cadastrar Projeto</h2>
+  <input id="title" placeholder="Título do projeto">
+  <textarea id="description" placeholder="Descrição"></textarea>
+  <button onclick="addProject()">Publicar</button>
+</div>
 
+<div class="card">
+  <h2>Meus Projetos</h2>
+  <div id="projects"></div>
+</div>
+
+<button class="logout" onclick="logout()">Sair</button>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const sb=supabase.createClient(
-'https://ynirlpziolginasusolb.supabase.co',
-'sb_publishable_1cX1yB_sA5aAodDbArwrCw_J6OxoK3l'
+const supabase = supabase.createClient(
+  "https://ynirlpziolginasusolb.supabase.co",
+  "sb_publishable_1cX1yB_sA5aAodDbArwrCw_J6OxoK3l"
 );
 
-const dev=localStorage.getItem('dev');
-if(!dev)location.href='login.html';
+async function checkAuth() {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) location.href = "../index.html";
+}
+checkAuth();
 
-async function load(){
-const {data}=await sb.from('projetos').select('*').eq('usuario_id',dev);
-lista.innerHTML=data.map(p=>`
-<p>${p.nome} <button onclick="del(${p.id})">X</button></p>
-`).join('');
+async function addProject() {
+  const title = document.getElementById("title").value;
+  const description = document.getElementById("description").value;
+
+  const { data: user } = await supabase.auth.getUser();
+
+  await supabase.from("projects").insert({
+    title,
+    description,
+    author_id: user.user.id
+  });
+
+  loadProjects();
 }
-async function add(){
-await sb.from('projetos').insert({
-usuario_id:dev,nome:nome.value,descricao:desc.value,tech:tech.value,contato:contato.value
-});
-load();
+
+async function loadProjects() {
+  const { data: user } = await supabase.auth.getUser();
+
+  const { data } = await supabase
+    .from("projects")
+    .select("*")
+    .eq("author_id", user.user.id);
+
+  const container = document.getElementById("projects");
+  container.innerHTML = "";
+
+  data.forEach(p => {
+    container.innerHTML += `
+      <div class="project">
+        <strong>${p.title}</strong>
+        <p>${p.description}</p>
+      </div>
+    `;
+  });
 }
-async function del(id){
-await sb.from('projetos').delete().eq('id',id);
-load();
+loadProjects();
+
+async function logout() {
+  await supabase.auth.signOut();
+  location.href = "../index.html";
 }
-load();
 </script>
+
 </body>
-</html>
+  </html>
