@@ -1,107 +1,134 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<title>Dashboard Empresa | SmartDevs</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<style>
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: #020617;
-  color: #e5e7eb;
-}
-header {
-  padding: 20px;
-  border-bottom: 1px solid #1e293b;
-}
-main {
-  padding: 20px;
-  max-width: 900px;
-  margin: auto;
-}
-.card {
-  background: #0f172a;
-  padding: 20px;
-  border-radius: 10px;
-  margin-bottom: 20px;
-}
-.project {
-  border-bottom: 1px solid #1e293b;
-  padding: 10px 0;
-}
-button {
-  padding: 8px 12px;
-  background: #38bdf8;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.logout {
-  background: #ef4444;
-  margin-top: 20px;
-}
-</style>
+  <meta charset="UTF-8" />
+  <title>Dashboard Empresa | SmartDevs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
 </head>
-
 <body>
 
-<header>
-  <h1>🏢 Dashboard da Empresa</h1>
-</header>
+  <header>
+    <h1>Dashboard da Empresa</h1>
+    <button onclick="logout()">Sair</button>
+  </header>
 
-<main>
+  <main>
+    <!-- VITRINE -->
+    <section>
+      <h2>Projetos Disponíveis</h2>
+      <ul id="lista-projetos"></ul>
+    </section>
 
-<div class="card">
-  <h2>Projetos Disponíveis</h2>
-  <div id="projects"></div>
-</div>
+    <!-- CONTATOS -->
+    <section>
+      <h2>Meus Contatos Enviados</h2>
+      <ul id="lista-contatos"></ul>
+    </section>
+  </main>
 
-<button class="logout" onclick="logout()">Sair</button>
+  <!-- AUTH -->
+  <script type="module" src="auth.js"></script>
 
-</main>
+  <!-- DASHBOARD EMPRESA -->
+  <script type="module">
+    import { supabase, protegerPagina } from "./auth.js";
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-const supabase = supabase.createClient(
-  "https://ynirlpziolginasusolb.supabase.co",
-  "sb_publishable_1cX1yB_sA5aAodDbArwrCw_J6OxoK3l"
-);
+    // 🔐 proteger página
+    await protegerPagina("empresa");
 
-async function checkAuth() {
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) location.href = "../index.html";
-}
-checkAuth();
+    // =========================
+    // 🔎 PERFIL EMPRESA
+    // =========================
+    const { data: perfil } = await supabase
+      .from("perfis")
+      .select("id")
+      .single();
 
-async function loadProjects() {
-  const { data } = await supabase.from("projects").select("*");
+    const empresaId = perfil.id;
 
-  const container = document.getElementById("projects");
-  container.innerHTML = "";
+    // =========================
+    // 📦 CARREGAR PROJETOS
+    // =========================
+    async function carregarProjetos() {
+      const { data } = await supabase
+        .from("projetos")
+        .select(`
+          id,
+          titulo,
+          descricao,
+          preco,
+          perfis ( nome )
+        `)
+        .order("created_at", { ascending: false });
 
-  data.forEach(p => {
-    container.innerHTML += `
-      <div class="project">
-        <strong>${p.title}</strong>
-        <p>${p.description}</p>
-        <button onclick="contact()">Entrar em contato</button>
-      </div>
-    `;
-  });
-}
-loadProjects();
+      const lista = document.getElementById("lista-projetos");
+      lista.innerHTML = "";
 
-function contact() {
-  alert("Entre em contato com o desenvolvedor para negociação.");
-}
+      data.forEach(p => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+          <strong>${p.titulo}</strong><br/>
+          ${p.descricao}<br/>
+          <em>Dev: ${p.perfis.nome}</em><br/>
+          <textarea id="msg-${p.id}" placeholder="Mensagem para o desenvolvedor"></textarea><br/>
+          <button onclick="enviarContato('${p.id}')">Entrar em contato</button>
+        `;
+        lista.appendChild(li);
+      });
+    }
 
-async function logout() {
-  await supabase.auth.signOut();
-  location.href = "../index.html";
-}
-</script>
+    // =========================
+    // ✉️ ENVIAR CONTATO
+    // =========================
+    window.enviarContato = async function (projetoId) {
+      const mensagem = document.getElementById(`msg-${projetoId}`).value;
+
+      if (!mensagem) {
+        alert("Digite uma mensagem");
+        return;
+      }
+
+      await supabase.from("contatos").insert({
+        projeto_id: projetoId,
+        empresa_id: empresaId,
+        mensagem
+      });
+
+      alert("Mensagem enviada ao desenvolvedor!");
+      carregarContatos();
+    };
+
+    // =========================
+    // 📬 MEUS CONTATOS
+    // =========================
+    async function carregarContatos() {
+      const { data } = await supabase
+        .from("contatos")
+        .select(`
+          mensagem,
+          created_at,
+          projetos ( titulo )
+        `)
+        .eq("empresa_id", empresaId)
+        .order("created_at", { ascending: false });
+
+      const lista = document.getElementById("lista-contatos");
+      lista.innerHTML = "";
+
+      data.forEach(c => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+          <strong>${c.projetos.titulo}</strong><br/>
+          ${c.mensagem}
+        `;
+        lista.appendChild(li);
+      });
+    }
+
+    carregarProjetos();
+    carregarContatos();
+  </script>
 
 </body>
 </html>
