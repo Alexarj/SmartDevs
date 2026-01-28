@@ -1,243 +1,110 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <title>Dashboard Dev | SmartDevs</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <title>Dashboard DEV – SmartDevs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <header>
+    <h1>Bem-vindo, Dev!</h1>
+  </header>
 
-<header>
-  <h1>Dashboard do Desenvolvedor</h1>
-  <button onclick="logout()">Sair</button>
-</header>
-
-<main>
-
-  <!-- NOVO PROJETO -->
-  <section>
-    <h2>Novo Projeto</h2>
-    <input type="text" id="titulo" placeholder="Título do projeto" />
-    <textarea id="descricao" placeholder="Descrição do projeto"></textarea>
-    <input type="number" id="preco" placeholder="Preço (opcional)" />
-
-    <label style="display:block;margin:10px 0;">
-      <input type="checkbox" id="aceite-termos" />
-      Li e aceito os <a href="termos.html" target="_blank">Termos de Uso</a>
-    </label>
-
-    <button onclick="criarProjeto()">Publicar Projeto</button>
+  <section id="carteira">
+    <h2>Carteira</h2>
+    <p>Saldo disponível: R$ <span id="saldo-dev">0,00</span></p>
+    <button id="btn-saque">Solicitar Saque</button>
   </section>
 
-  <!-- MEUS PROJETOS -->
-  <section>
-    <h2>Meus Projetos</h2>
-    <ul id="lista-projetos"></ul>
+  <section id="historico">
+    <h2>Histórico de Vendas</h2>
+    <table id="tabela-vendas">
+      <thead>
+        <tr>
+          <th>Projeto</th>
+          <th>Valor Total</th>
+          <th>Comissão Plataforma</th>
+          <th>Saldo Dev</th>
+          <th>Status Pagamento</th>
+          <th>Comissão Paga</th>
+          <th>Data</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Vendas carregadas via JS -->
+      </tbody>
+    </table>
   </section>
 
-  <!-- CONVERSAS -->
-  <section>
-    <h2>Conversas com Empresas</h2>
-    <ul id="lista-chats"></ul>
-  </section>
+  <script src="auth.js"></script>
+  <script src="main.js"></script>
+  <script>
+    const tabela = document.getElementById("tabela-vendas").querySelector("tbody");
+    const saldoSpan = document.getElementById("saldo-dev");
+    const btnSaque = document.getElementById("btn-saque");
 
-  <!-- CHAT -->
-  <section id="chat-box" style="display:none;">
-    <h2>Chat</h2>
-    <div id="mensagens" style="border:1px solid #ccc;padding:10px;height:250px;overflow-y:auto;margin-bottom:10px;"></div>
-    <textarea id="nova-mensagem" placeholder="Digite sua mensagem"></textarea>
-    <button onclick="enviarMensagem()">Enviar</button>
-  </section>
+    async function carregarVendas() {
+      const { data, error } = await supabase
+        .from("vendas")
+        .select(`
+          id,
+          projeto_id,
+          projetos(titulo),
+          valor_total,
+          comissao,
+          saldo_dev,
+          saldo_plataforma,
+          status_pagamento,
+          comissao_paga,
+          data_venda
+        `)
+        .eq("dev_id", supabase.auth.user().id);
 
-  <!-- VENDAS -->
-  <section>
-    <h2>Minhas Vendas</h2>
-    <ul id="lista-vendas"></ul>
-  </section>
+      if (error) return alert("Erro ao carregar vendas: " + error.message);
 
-</main>
+      // Limpar tabela
+      tabela.innerHTML = "";
 
-<script type="module" src="auth.js"></script>
+      // Calcular saldo total
+      let saldoTotal = 0;
 
-<script type="module">
-import { supabase, protegerPagina } from "./auth.js";
+      data.forEach(v => {
+        saldoTotal += parseFloat(v.saldo_dev);
 
-await protegerPagina("dev");
-const user = (await supabase.auth.getUser()).data.user;
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${v.projetos.titulo}</td>
+          <td>R$ ${parseFloat(v.valor_total).toFixed(2)}</td>
+          <td>R$ ${parseFloat(v.comissao).toFixed(2)}</td>
+          <td>R$ ${parseFloat(v.saldo_dev).toFixed(2)}</td>
+          <td>${v.status_pagamento}</td>
+          <td>${v.comissao_paga ? "Sim" : "Não"}</td>
+          <td>${new Date(v.data_venda).toLocaleString()}</td>
+        `;
+        tabela.appendChild(tr);
+      });
 
-let chatAtual = null;
-let canalRealtime = null;
+      saldoSpan.textContent = saldoTotal.toFixed(2);
+    }
 
-// Comissão plataforma 20%
-const VALOR_COMISSAO = 0.20;
+    btnSaque.addEventListener("click", async () => {
+      if (!confirm("Deseja solicitar saque do saldo disponível?")) return;
 
-// PERFIL DEV
-const { data: perfil } = await supabase
-  .from("perfis")
-  .select("id")
-  .single();
-const devId = perfil.id;
+      const { data, error } = await supabase
+        .from("vendas")
+        .update({ saldo_dev: 0 }) // resetar saldo após solicitar saque
+        .eq("dev_id", supabase.auth.user().id)
+        .eq("status_pagamento", "pago")
+        .eq("comissao_paga", true);
 
-// ACEITE TERMOS
-async function verificarAceite() {
-  const { data } = await supabase
-    .from("termos_aceite")
-    .select("id")
-    .single();
-  return !!data;
-}
+      if (error) return alert("Erro ao solicitar saque: " + error.message);
+      alert("Solicitação de saque registrada! Você receberá o valor manualmente.");
+      carregarVendas();
+    });
 
-// CRIAR PROJETO
-window.criarProjeto = async () => {
-  const titulo = document.getElementById("titulo").value.trim();
-  const descricao = document.getElementById("descricao").value.trim();
-  const preco = document.getElementById("preco").value || null;
-  const aceito = document.getElementById("aceite-termos").checked;
-
-  if (!titulo || !descricao) { alert("Preencha título e descrição"); return; }
-  if (!aceito) { alert("Aceite os termos"); return; }
-
-  const jaAceitou = await verificarAceite();
-  if (!jaAceitou) await supabase.from("termos_aceite").insert({ user_id: user.id });
-
-  await supabase.from("projetos").insert({ dev_id: devId, titulo, descricao, preco });
-
-  document.getElementById("titulo").value = "";
-  document.getElementById("descricao").value = "";
-  document.getElementById("preco").value = "";
-  document.getElementById("aceite-termos").checked = false;
-
-  carregarProjetos();
-};
-
-// LISTAR PROJETOS
-async function carregarProjetos() {
-  const { data } = await supabase.from("projetos").select("*").eq("dev_id", devId);
-  const ul = document.getElementById("lista-projetos");
-  ul.innerHTML = "";
-  data.forEach(p => {
-    const li = document.createElement("li");
-    li.innerHTML = `<strong>${p.titulo}</strong><br>${p.descricao}`;
-    ul.appendChild(li);
-  });
-}
-
-// LISTAR CHATS
-async function carregarChats() {
-  const { data } = await supabase.from("chats").select(`
-    id,
-    projetos ( titulo ),
-    perfis ( nome )
-  `).eq("dev_id", user.id);
-
-  const ul = document.getElementById("lista-chats");
-  ul.innerHTML = "";
-  data.forEach(c => {
-    const li = document.createElement("li");
-    li.innerHTML = `
-      <strong>${c.projetos.titulo}</strong><br>
-      Empresa: ${c.perfis.nome}<br>
-      <button onclick="abrirChat('${c.id}')">Abrir Chat</button>
-    `;
-    ul.appendChild(li);
-  });
-}
-
-// CHAT EM TEMPO REAL
-function iniciarRealtime(chatId) {
-  if (canalRealtime) supabase.removeChannel(canalRealtime);
-
-  canalRealtime = supabase
-    .channel("chat-" + chatId)
-    .on("postgres_changes", {
-      event: "INSERT",
-      schema: "public",
-      table: "mensagens_chat",
-      filter: `chat_id=eq.${chatId}`
-    }, payload => {
-      adicionarMensagem(payload.new);
-    })
-    .subscribe();
-}
-
-window.abrirChat = async chatId => {
-  chatAtual = chatId;
-  document.getElementById("chat-box").style.display = "block";
-
-  const div = document.getElementById("mensagens");
-  div.innerHTML = "";
-
-  const { data } = await supabase.from("mensagens_chat")
-    .select("*")
-    .eq("chat_id", chatId)
-    .order("created_at");
-
-  data.forEach(adicionarMensagem);
-  iniciarRealtime(chatId);
-};
-
-function adicionarMensagem(m) {
-  const div = document.getElementById("mensagens");
-  const p = document.createElement("p");
-  p.textContent = m.mensagem;
-  p.style.margin = "6px 0";
-  p.style.padding = "6px 10px";
-  p.style.borderRadius = "6px";
-
-  if (m.remetente_id === user.id) {
-    p.style.background = "#2563eb";
-    p.style.color = "#fff";
-    p.style.textAlign = "right";
-  } else {
-    p.style.background = "#e5e7eb";
-  }
-
-  div.appendChild(p);
-  div.scrollTop = div.scrollHeight;
-}
-
-window.enviarMensagem = async () => {
-  const input = document.getElementById("nova-mensagem");
-  const msg = input.value.trim();
-  if (!msg) return;
-
-  await supabase.from("mensagens_chat").insert({
-    chat_id: chatAtual,
-    remetente_id: user.id,
-    mensagem: msg
-  });
-
-  input.value = "";
-};
-
-// LISTAR VENDAS
-async function carregarVendas() {
-  const { data } = await supabase.from("vendas")
-    .select(`
-      id,
-      projeto_id,
-      valor_total,
-      comissao,
-      data_venda,
-      projetos(titulo)
-    `)
-    .eq("dev_id", devId)
-    .order("data_venda", { ascending: false });
-
-  const ul = document.getElementById("lista-vendas");
-  ul.innerHTML = "";
-  data.forEach(v => {
-    const li = document.createElement("li");
-    li.innerHTML = `<strong>${v.projetos.titulo}</strong> - Valor: R$ ${v.valor_total} - Comissão plataforma: R$ ${v.comissao} - Data: ${new Date(v.data_venda).toLocaleString()}`;
-    ul.appendChild(li);
-  });
-}
-
-carregarProjetos();
-carregarChats();
-carregarVendas();
-
-</script>
+    // Inicializa
+    carregarVendas();
+  </script>
 </body>
-      </html>
+  </html>
