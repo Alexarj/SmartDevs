@@ -1,79 +1,50 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>SmartDevs - Login</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
-  <style>
-    body { font-family: Arial; background:#f5f5f5; display:flex; justify-content:center; align-items:center; height:100vh; margin:0;}
-    form { background:#fff; padding:20px; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,0.1); width:300px;}
-    input, button { display:block; width:100%; margin-bottom:10px; padding:10px; font-size:14px;}
-    button { background:#0f172a; color:#fff; border:none; cursor:pointer;}
-    button:hover { background:#1e293b;}
-    h2 { text-align:center; margin-top:0; }
-  </style>
+<meta charset="UTF-8">
+<title>Login Dev</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-  <form id="loginForm">
-    <h2>SmartDevs Login</h2>
-    <input type="email" id="email" placeholder="Email" required>
-    <input type="password" id="senha" placeholder="Senha" required>
-    <button type="submit">Entrar</button>
-    <button type="button" id="btnCadastrar">Cadastrar</button>
-    <p id="msg" style="color:red;font-size:12px;"></p>
-  </form>
 
-  <script>
-    const supabaseUrl = 'https://ynirlpziolginasusolb.supabase.co';
-    const supabaseKey = 'sb_publishable_1cX1yB_sA5aAodDbArwrCw_J6OxoK3l';
-    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+<h2>Dev Login</h2>
+<input id="email" placeholder="Email">
+<input id="senha" type="password" placeholder="Senha">
 
-    const loginForm = document.getElementById('loginForm');
-    const btnCadastrar = document.getElementById('btnCadastrar');
-    const msg = document.getElementById('msg');
+<label>
+<input type="checkbox" id="termo">
+Aceito os <a href="termos.html" target="_blank">Termos</a>
+</label>
 
-    loginForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('email').value;
-      const senha = document.getElementById('senha').value;
+<button onclick="login()">Entrar</button>
+<button onclick="cadastrar()">Cadastrar</button>
 
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('*')
-        .eq('email', email)
-        .eq('senha', senha)
-        .single();
+<script>
+const sb=supabase.createClient(
+'https://ynirlpziolginasusolb.supabase.co',
+'sb_publishable_1cX1yB_sA5aAodDbArwrCw_J6OxoK3l'
+);
 
-      if(error || !data) {
-        msg.textContent = "Email ou senha incorretos!";
-        return;
-      }
+async function login(){
+const {data}=await sb.from('usuarios')
+.select('*')
+.eq('email',email.value)
+.eq('senha',senha.value)
+.single();
+if(!data)return alert('Erro');
+localStorage.setItem('dev',data.id);
+location.href='dashboard.html';
+}
 
-      localStorage.setItem('usuario_id', data.id);
-      window.location.href = "dashboard.html";
-    });
-
-    btnCadastrar.addEventListener('click', async () => {
-      const email = document.getElementById('email').value;
-      const senha = document.getElementById('senha').value;
-      const nome = prompt("Digite seu nome:");
-
-      if(!nome) return alert("Nome obrigatório!");
-
-      const { data, error } = await supabase
-        .from('usuarios')
-        .insert([{ nome, email, senha }])
-        .select()
-        .single();
-
-      if(error) {
-        msg.textContent = "Erro ao cadastrar: " + error.message;
-        return;
-      }
-
-      alert("Cadastro realizado! Faça login agora.");
-    });
-  </script>
+async function cadastrar(){
+if(!termo.checked)return alert('Aceite os termos');
+await sb.from('usuarios').insert({
+email:email.value,
+senha:senha.value,
+nome:prompt('Seu nome')
+});
+alert('Cadastro ok');
+}
+</script>
 </body>
 </html>
