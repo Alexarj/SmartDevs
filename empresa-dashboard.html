@@ -7,46 +7,33 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-
 <header>
   <h1>Dashboard da Empresa</h1>
   <button onclick="logout()">Sair</button>
 </header>
 
 <main>
-
   <section>
-    <h2>Projetos</h2>
+    <h2>Vitrine de Projetos</h2>
     <ul id="lista-projetos"></ul>
   </section>
-
-  <section>
-    <h2>Minhas Conversas</h2>
-    <ul id="lista-chats"></ul>
-  </section>
-
-  <section id="chat-box" style="display:none;">
-    <h2>Chat</h2>
-    <div id="mensagens"></div>
-    <textarea id="nova-mensagem" placeholder="Digite sua mensagem"></textarea>
-    <button onclick="enviarMensagem()">Enviar</button>
-  </section>
-
 </main>
 
 <script type="module" src="auth.js"></script>
-
 <script type="module">
 import { supabase, protegerPagina } from "./auth.js";
-await protegerPagina("empresa");
 
+await protegerPagina("empresa");
 const user = (await supabase.auth.getUser()).data.user;
-let chatAtual = null;
+
+// Comissão 20%
+const VALOR_COMISSAO = 0.20;
 
 // LISTAR PROJETOS
 async function carregarProjetos() {
   const { data } = await supabase.from("projetos")
-    .select("id, titulo, perfis (id, nome)");
+    .select(`*, perfis(nome)`)
+    .order("created_at", { ascending: false });
 
   const ul = document.getElementById("lista-projetos");
   ul.innerHTML = "";
@@ -54,74 +41,34 @@ async function carregarProjetos() {
   data.forEach(p => {
     const li = document.createElement("li");
     li.innerHTML = `
-      <strong>${p.titulo}</strong><br>
-      <button onclick="abrirChat('${p.id}', '${p.perfis.id}')">
-        Falar com o Dev
+      <strong>${p.titulo}</strong> - ${p.descricao} - R$ ${p.preco || 0}<br>
+      Desenvolvedor: ${p.perfis.nome}<br>
+      <button onclick="comprarProjeto('${p.id}', '${p.dev_id}', ${p.preco})">
+        Comprar Projeto
       </button>
     `;
     ul.appendChild(li);
   });
 }
 
-// ABRIR / CRIAR CHAT
-window.abrirChat = async (projetoId, devId) => {
-  let { data } = await supabase
-    .from("chats")
-    .select("*")
-    .eq("projeto_id", projetoId)
-    .eq("empresa_id", user.id)
-    .single();
+async function comprarProjeto(projetoId, devId, valor) {
+  if (!confirm(`Confirmar compra do projeto por R$ ${valor}?`)) return;
 
-  if (!data) {
-    const res = await supabase.from("chats").insert({
-      projeto_id: projetoId,
-      dev_id: devId,
-      empresa_id: user.id
-    }).select().single();
+  const comissao = valor * VALOR_COMISSAO;
 
-    data = res.data;
-  }
-
-  chatAtual = data.id;
-  document.getElementById("chat-box").style.display = "block";
-  carregarMensagens();
-};
-
-// MENSAGENS
-async function carregarMensagens() {
-  const { data } = await supabase
-    .from("mensagens_chat")
-    .select("mensagem, remetente_id")
-    .eq("chat_id", chatAtual)
-    .order("created_at");
-
-  const div = document.getElementById("mensagens");
-  div.innerHTML = "";
-
-  data.forEach(m => {
-    const p = document.createElement("p");
-    p.textContent = m.mensagem;
-    div.appendChild(p);
+  const { error } = await supabase.from("vendas").insert({
+    projeto_id: projetoId,
+    dev_id: devId,
+    empresa_id: user.id,
+    valor_total: valor,
+    comissao: comissao
   });
+
+  if (error) return alert("Erro ao registrar venda: " + error.message);
+  alert(`Compra registrada com sucesso! Comissão da plataforma: R$ ${comissao.toFixed(2)}`);
 }
-
-// ENVIAR
-window.enviarMensagem = async () => {
-  const msg = document.getElementById("nova-mensagem").value;
-  if (!msg) return;
-
-  await supabase.from("mensagens_chat").insert({
-    chat_id: chatAtual,
-    remetente_id: user.id,
-    mensagem: msg
-  });
-
-  document.getElementById("nova-mensagem").value = "";
-  carregarMensagens();
-};
 
 carregarProjetos();
 </script>
-
 </body>
 </html>
