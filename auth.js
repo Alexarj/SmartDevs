@@ -1,109 +1,114 @@
 <script type="module">
   import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
+  // =========================
+  // CONFIG
+  // =========================
   const SUPABASE_URL = "https://ynirlpziolginasusolb.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_1cX1yB_sA5aAodDbArwrCw_J6OxoK3l";
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   // =========================
-  // CADASTRO
+  // HELPERS
   // =========================
-  window.signUp = async () => {
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
-    const nome = document.getElementById("nome").value;
-    const tipo = document.getElementById("tipo").value;
+  async function getProfile(userId) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("tipo")
+      .eq("id", userId)
+      .single();
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password
-    });
-
-    if (error) return alert(error.message);
-
-    const user = data.user;
-
-    if (tipo === "dev") {
-      await supabase.from("usuarios").insert({
-        id: user.id,
-        nome,
-        email,
-        tipo: "dev"
-      });
-    } else {
-      await supabase.from("empresas").insert({
-        id: user.id,
-        nome,
-        email
-      });
-    }
-
-    alert("Cadastro realizado com sucesso!");
-    window.location.href = "login.html";
-  };
+    if (error) return null;
+    return data.tipo;
+  }
 
   // =========================
   // LOGIN
   // =========================
-  window.signIn = async () => {
+  window.login = async function () {
     const email = document.getElementById("email").value;
     const password = document.getElementById("password").value;
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
-      password
+      password,
     });
 
-    if (error) return alert(error.message);
-
-    await redirectUser();
-  };
-
-  // =========================
-  // REDIRECIONAMENTO
-  // =========================
-  async function redirectUser() {
-    const { data: userData } = await supabase.auth.getUser();
-    const user = userData.user;
-
-    if (!user) return;
-
-    const { data: dev } = await supabase
-      .from("usuarios")
-      .select("id")
-      .eq("id", user.id)
-      .single();
-
-    if (dev) {
-      window.location.href = "dashboard-dev.html";
+    if (error) {
+      alert(error.message);
       return;
     }
 
-    const { data: empresa } = await supabase
-      .from("empresas")
-      .select("id")
-      .eq("id", user.id)
-      .single();
+    const tipo = await getProfile(data.user.id);
 
-    if (empresa) {
-      window.location.href = "dashboard-empresa.html";
+    if (tipo === "dev") {
+      window.location.href = "/dashboard/dev.html";
+    } else if (tipo === "empresa") {
+      window.location.href = "/dashboard/empresa.html";
+    } else {
+      alert("Perfil não encontrado.");
     }
-  }
+  };
 
   // =========================
-  // PROTEGER ROTAS
+  // CADASTRO
   // =========================
-  window.checkAuth = async () => {
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) window.location.href = "login.html";
+  window.register = async function (tipo) {
+    const nome = document.getElementById("nome").value;
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    const { error: profileError } = await supabase.from("profiles").insert({
+      id: data.user.id,
+      tipo,
+      nome,
+    });
+
+    if (profileError) {
+      alert(profileError.message);
+      return;
+    }
+
+    alert("Cadastro realizado com sucesso! Faça login.");
+    window.location.href = "/login.html";
+  };
+
+  // =========================
+  // PROTEÇÃO DE PÁGINA
+  // =========================
+  window.protectPage = async function (tipoEsperado) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      window.location.href = "/login.html";
+      return;
+    }
+
+    const tipo = await getProfile(session.user.id);
+
+    if (tipo !== tipoEsperado) {
+      window.location.href = "/login.html";
+    }
   };
 
   // =========================
   // LOGOUT
   // =========================
-  window.signOut = async () => {
+  window.logout = async function () {
     await supabase.auth.signOut();
-    window.location.href = "index.html";
+    window.location.href = "/login.html";
   };
 </script>
