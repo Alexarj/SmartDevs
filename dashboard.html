@@ -20,7 +20,7 @@
     <h2>Novo Projeto</h2>
 
     <input type="text" id="titulo" placeholder="Título do projeto" />
-    <textarea id="descricao" placeholder="Descrição do projeto"></textarea>
+    <textarea id="descricao" placeholder="Descrição"></textarea>
     <input type="number" id="preco" placeholder="Preço (opcional)" />
 
     <label style="display:block;margin:10px 0;">
@@ -37,10 +37,18 @@
     <ul id="lista-projetos"></ul>
   </section>
 
-  <!-- CONTATOS -->
+  <!-- CONVERSAS -->
   <section>
-    <h2>Contatos de Empresas</h2>
-    <ul id="lista-contatos"></ul>
+    <h2>Conversas com Empresas</h2>
+    <ul id="lista-chats"></ul>
+  </section>
+
+  <!-- CHAT -->
+  <section id="chat-box" style="display:none;">
+    <h2>Chat</h2>
+    <div id="mensagens" style="border:1px solid #ccc;padding:10px;height:200px;overflow-y:auto;"></div>
+    <textarea id="nova-mensagem" placeholder="Digite sua mensagem"></textarea>
+    <button onclick="enviarMensagem()">Enviar</button>
   </section>
 
 </main>
@@ -48,113 +56,170 @@
 <script type="module" src="auth.js"></script>
 
 <script type="module">
-  import { supabase, protegerPagina } from "./auth.js";
+import { supabase, protegerPagina } from "./auth.js";
 
-  await protegerPagina("dev");
+// 🔐 proteger página
+await protegerPagina("dev");
 
-  // PERFIL DEV
-  const { data: perfil } = await supabase
-    .from("perfis")
+const user = (await supabase.auth.getUser()).data.user;
+let chatAtual = null;
+
+// ========================
+// PERFIL DEV
+// ========================
+const { data: perfil } = await supabase
+  .from("perfis")
+  .select("id")
+  .single();
+
+const devId = perfil.id;
+
+// ========================
+// ACEITE DOS TERMOS
+// ========================
+async function verificarAceite() {
+  const { data } = await supabase
+    .from("termos_aceite")
     .select("id")
     .single();
+  return !!data;
+}
 
-  const devId = perfil.id;
+// ========================
+// CRIAR PROJETO
+// ========================
+window.criarProjeto = async function () {
+  const titulo = document.getElementById("titulo").value;
+  const descricao = document.getElementById("descricao").value;
+  const preco = document.getElementById("preco").value || null;
+  const aceito = document.getElementById("aceite-termos").checked;
 
-  // VERIFICAR ACEITE
-  async function verificarAceite() {
-    const { data } = await supabase
-      .from("termos_aceite")
-      .select("id")
-      .single();
-
-    return !!data;
+  if (!titulo || !descricao) {
+    alert("Preencha título e descrição");
+    return;
   }
 
-  // CRIAR PROJETO
-  window.criarProjeto = async function () {
-    const titulo = document.getElementById("titulo").value;
-    const descricao = document.getElementById("descricao").value;
-    const preco = document.getElementById("preco").value || null;
-    const aceito = document.getElementById("aceite-termos").checked;
+  if (!aceito) {
+    alert("Aceite os termos para publicar");
+    return;
+  }
 
-    if (!titulo || !descricao) {
-      alert("Preencha título e descrição");
-      return;
-    }
-
-    if (!aceito) {
-      alert("Você precisa aceitar os termos para publicar.");
-      return;
-    }
-
-    const jaAceitou = await verificarAceite();
-
-    if (!jaAceitou) {
-      const user = (await supabase.auth.getUser()).data.user;
-      await supabase.from("termos_aceite").insert({
-        user_id: user.id
-      });
-    }
-
-    await supabase.from("projetos").insert({
-      dev_id: devId,
-      titulo,
-      descricao,
-      preco
-    });
-
-    document.getElementById("titulo").value = "";
-    document.getElementById("descricao").value = "";
-    document.getElementById("preco").value = "";
-    document.getElementById("aceite-termos").checked = false;
-
-    carregarProjetos();
-  };
-
-  // CARREGAR PROJETOS
-  async function carregarProjetos() {
-    const { data } = await supabase
-      .from("projetos")
-      .select("*")
-      .eq("dev_id", devId)
-      .order("created_at", { ascending: false });
-
-    const lista = document.getElementById("lista-projetos");
-    lista.innerHTML = "";
-
-    data.forEach(p => {
-      const li = document.createElement("li");
-      li.innerHTML = `<strong>${p.titulo}</strong><br>${p.descricao}`;
-      lista.appendChild(li);
+  const jaAceitou = await verificarAceite();
+  if (!jaAceitou) {
+    await supabase.from("termos_aceite").insert({
+      user_id: user.id
     });
   }
 
-  // CONTATOS
-  async function carregarContatos() {
-    const { data } = await supabase
-      .from("contatos")
-      .select(`
-        mensagem,
-        projetos ( titulo ),
-        perfis ( nome )
-      `)
-      .order("created_at", { ascending: false });
+  await supabase.from("projetos").insert({
+    dev_id: devId,
+    titulo,
+    descricao,
+    preco
+  });
 
-    const lista = document.getElementById("lista-contatos");
-    lista.innerHTML = "";
-
-    data.forEach(c => {
-      const li = document.createElement("li");
-      li.innerHTML = `
-        <strong>${c.perfis.nome}</strong> sobre <em>${c.projetos.titulo}</em><br>
-        ${c.mensagem}
-      `;
-      lista.appendChild(li);
-    });
-  }
+  document.getElementById("titulo").value = "";
+  document.getElementById("descricao").value = "";
+  document.getElementById("preco").value = "";
+  document.getElementById("aceite-termos").checked = false;
 
   carregarProjetos();
-  carregarContatos();
+};
+
+// ========================
+// PROJETOS
+// ========================
+async function carregarProjetos() {
+  const { data } = await supabase
+    .from("projetos")
+    .select("*")
+    .eq("dev_id", devId);
+
+  const ul = document.getElementById("lista-projetos");
+  ul.innerHTML = "";
+
+  data.forEach(p => {
+    const li = document.createElement("li");
+    li.innerHTML = `<strong>${p.titulo}</strong><br>${p.descricao}`;
+    ul.appendChild(li);
+  });
+}
+
+// ========================
+// CHATS DO DEV
+// ========================
+async function carregarChats() {
+  const { data } = await supabase
+    .from("chats")
+    .select(`
+      id,
+      projetos ( titulo ),
+      perfis ( nome )
+    `)
+    .eq("dev_id", user.id);
+
+  const ul = document.getElementById("lista-chats");
+  ul.innerHTML = "";
+
+  data.forEach(c => {
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <strong>${c.projetos.titulo}</strong><br>
+      Empresa: ${c.perfis.nome}<br>
+      <button onclick="abrirChat('${c.id}')">Abrir Chat</button>
+    `;
+    ul.appendChild(li);
+  });
+}
+
+// ========================
+// ABRIR CHAT
+// ========================
+window.abrirChat = async function (chatId) {
+  chatAtual = chatId;
+  document.getElementById("chat-box").style.display = "block";
+  carregarMensagens();
+};
+
+// ========================
+// MENSAGENS
+// ========================
+async function carregarMensagens() {
+  const { data } = await supabase
+    .from("mensagens_chat")
+    .select("mensagem, remetente_id")
+    .eq("chat_id", chatAtual)
+    .order("created_at");
+
+  const div = document.getElementById("mensagens");
+  div.innerHTML = "";
+
+  data.forEach(m => {
+    const p = document.createElement("p");
+    p.textContent = m.mensagem;
+    div.appendChild(p);
+  });
+}
+
+// ========================
+// ENVIAR MENSAGEM
+// ========================
+window.enviarMensagem = async function () {
+  const msg = document.getElementById("nova-mensagem").value;
+  if (!msg) return;
+
+  await supabase.from("mensagens_chat").insert({
+    chat_id: chatAtual,
+    remetente_id: user.id,
+    mensagem: msg
+  });
+
+  document.getElementById("nova-mensagem").value = "";
+  carregarMensagens();
+};
+
+carregarProjetos();
+carregarChats();
 </script>
 
 </body>
