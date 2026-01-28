@@ -1,74 +1,72 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <title>Dashboard Empresa | SmartDevs</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <title>Dashboard Empresa – SmartDevs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header>
-  <h1>Dashboard da Empresa</h1>
-  <button onclick="logout()">Sair</button>
-</header>
+  <header>
+    <h1>Bem-vindo, Empresa!</h1>
+  </header>
 
-<main>
-  <section>
-    <h2>Vitrine de Projetos</h2>
-    <ul id="lista-projetos"></ul>
+  <section id="historico-compras">
+    <h2>Histórico de Compras</h2>
+    <table id="tabela-compras">
+      <thead>
+        <tr>
+          <th>Projeto</th>
+          <th>Valor Total</th>
+          <th>Comissão Plataforma</th>
+          <th>Status Pagamento</th>
+          <th>Data</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Compras carregadas via JS -->
+      </tbody>
+    </table>
   </section>
-</main>
 
-<script type="module" src="auth.js"></script>
-<script type="module">
-import { supabase, protegerPagina } from "./auth.js";
+  <script src="auth.js"></script>
+  <script src="main.js"></script>
+  <script>
+    const tabela = document.getElementById("tabela-compras").querySelector("tbody");
 
-await protegerPagina("empresa");
-const user = (await supabase.auth.getUser()).data.user;
+    async function carregarCompras() {
+      const { data, error } = await supabase
+        .from("vendas")
+        .select(`
+          id,
+          projeto_id,
+          projetos(titulo),
+          valor_total,
+          comissao,
+          status_pagamento,
+          data_venda
+        `)
+        .eq("empresa_id", supabase.auth.user().id);
 
-// Comissão 20%
-const VALOR_COMISSAO = 0.20;
+      if (error) return alert("Erro ao carregar compras: " + error.message);
 
-// LISTAR PROJETOS
-async function carregarProjetos() {
-  const { data } = await supabase.from("projetos")
-    .select(`*, perfis(nome)`)
-    .order("created_at", { ascending: false });
+      tabela.innerHTML = "";
 
-  const ul = document.getElementById("lista-projetos");
-  ul.innerHTML = "";
+      data.forEach(v => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${v.projetos.titulo}</td>
+          <td>R$ ${parseFloat(v.valor_total).toFixed(2)}</td>
+          <td>R$ ${parseFloat(v.comissao).toFixed(2)}</td>
+          <td>${v.status_pagamento}</td>
+          <td>${new Date(v.data_venda).toLocaleString()}</td>
+        `;
+        tabela.appendChild(tr);
+      });
+    }
 
-  data.forEach(p => {
-    const li = document.createElement("li");
-    li.innerHTML = `
-      <strong>${p.titulo}</strong> - ${p.descricao} - R$ ${p.preco || 0}<br>
-      Desenvolvedor: ${p.perfis.nome}<br>
-      <button onclick="comprarProjeto('${p.id}', '${p.dev_id}', ${p.preco})">
-        Comprar Projeto
-      </button>
-    `;
-    ul.appendChild(li);
-  });
-}
-
-async function comprarProjeto(projetoId, devId, valor) {
-  if (!confirm(`Confirmar compra do projeto por R$ ${valor}?`)) return;
-
-  const comissao = valor * VALOR_COMISSAO;
-
-  const { error } = await supabase.from("vendas").insert({
-    projeto_id: projetoId,
-    dev_id: devId,
-    empresa_id: user.id,
-    valor_total: valor,
-    comissao: comissao
-  });
-
-  if (error) return alert("Erro ao registrar venda: " + error.message);
-  alert(`Compra registrada com sucesso! Comissão da plataforma: R$ ${comissao.toFixed(2)}`);
-}
-
-carregarProjetos();
-</script>
+    // Inicializa
+    carregarCompras();
+  </script>
 </body>
 </html>
