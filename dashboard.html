@@ -1,140 +1,260 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<title>Dashboard Dev | SmartDevs</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <title>SmartDevs • Dashboard Dev</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<style>
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: #020617;
-  color: #e5e7eb;
-}
-header {
-  padding: 20px;
-  background: #020617;
-  border-bottom: 1px solid #1e293b;
-}
-header h1 {
-  margin: 0;
-}
-main {
-  padding: 20px;
-  max-width: 900px;
-  margin: auto;
-}
-.card {
-  background: #0f172a;
-  padding: 20px;
-  border-radius: 10px;
-  margin-bottom: 20px;
-}
-input, textarea, button {
-  width: 100%;
-  padding: 10px;
-  margin-top: 10px;
-  border-radius: 6px;
-  border: none;
-}
-button {
-  background: #22c55e;
-  cursor: pointer;
-  font-weight: bold;
-}
-button:hover {
-  background: #16a34a;
-}
-.project {
-  border-bottom: 1px solid #1e293b;
-  padding: 10px 0;
-}
-.logout {
-  background: #ef4444;
-  margin-top: 20px;
-}
-</style>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+
+    header {
+      background: #020617;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    button {
+      background: #2563eb;
+      border: none;
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button.danger {
+      background: #dc2626;
+    }
+
+    main {
+      max-width: 900px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    section {
+      background: #020617;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      margin-bottom: 12px;
+      border-radius: 6px;
+      border: none;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .projeto {
+      border-bottom: 1px solid #1e293b;
+      padding: 10px 0;
+    }
+
+    .projeto:last-child {
+      border-bottom: none;
+    }
+
+    small {
+      color: #94a3b8;
+    }
+
+    label {
+      font-size: 14px;
+    }
+  </style>
 </head>
-
 <body>
 
 <header>
-  <h1>👨‍💻 Dashboard do Desenvolvedor</h1>
+  <h1>👨‍💻 Dashboard Dev</h1>
+  <button class="danger" onclick="logout()">Sair</button>
 </header>
 
 <main>
 
-<div class="card">
-  <h2>Cadastrar Projeto</h2>
-  <input id="title" placeholder="Título do projeto">
-  <textarea id="description" placeholder="Descrição"></textarea>
-  <button onclick="addProject()">Publicar</button>
-</div>
+  <!-- CRIAR PROJETO -->
+  <section>
+    <h2>Novo Projeto</h2>
 
-<div class="card">
-  <h2>Meus Projetos</h2>
-  <div id="projects"></div>
-</div>
+    <input id="titulo" placeholder="Título do projeto" />
+    <textarea id="descricao" placeholder="Descrição do projeto"></textarea>
 
-<button class="logout" onclick="logout()">Sair</button>
+    <label>
+      <input type="checkbox" id="publico" checked />
+      Projeto público
+    </label>
+    <br /><br />
+
+    <label>
+      <input type="checkbox" id="termo" />
+      Declaro que este projeto é de minha autoria e aceito os termos de exclusividade
+    </label>
+    <br /><br />
+
+    <button onclick="criarProjeto()">Publicar Projeto</button>
+  </section>
+
+  <!-- MEUS PROJETOS -->
+  <section>
+    <h2>Meus Projetos</h2>
+    <div id="listaProjetos">Carregando...</div>
+  </section>
+
+  <!-- CONTATOS -->
+  <section>
+    <h2>Contatos Recebidos</h2>
+    <div id="listaContatos">Carregando...</div>
+  </section>
 
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-const supabase = supabase.createClient(
-  "https://ynirlpziolginasusolb.supabase.co",
-  "sb_publishable_1cX1yB_sA5aAodDbArwrCw_J6OxoK3l"
-);
+<script type="module">
+  import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-async function checkAuth() {
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) location.href = "../index.html";
-}
-checkAuth();
+  const SUPABASE_URL = "https://ynirlpziolginasusolb.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_1cX1yB_sA5aAodDbArwrCw_J6OxoK3l";
 
-async function addProject() {
-  const title = document.getElementById("title").value;
-  const description = document.getElementById("description").value;
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  const { data: user } = await supabase.auth.getUser();
+  // =========================
+  // PROTEÇÃO
+  // =========================
+  async function protect() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) window.location.href = "/login.html";
+  }
+  protect();
 
-  await supabase.from("projects").insert({
-    title,
-    description,
-    author_id: user.user.id
-  });
+  // =========================
+  // LOGOUT
+  // =========================
+  window.logout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/login.html";
+  };
 
-  loadProjects();
-}
+  // =========================
+  // CRIAR PROJETO
+  // =========================
+  window.criarProjeto = async () => {
+    const titulo = document.getElementById("titulo").value;
+    const descricao = document.getElementById("descricao").value;
+    const publico = document.getElementById("publico").checked;
+    const termo = document.getElementById("termo").checked;
 
-async function loadProjects() {
-  const { data: user } = await supabase.auth.getUser();
+    if (!termo) {
+      alert("Você precisa aceitar o termo de exclusividade.");
+      return;
+    }
 
-  const { data } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("author_id", user.user.id);
+    const { data: { user } } = await supabase.auth.getUser();
 
-  const container = document.getElementById("projects");
-  container.innerHTML = "";
+    const { data, error } = await supabase
+      .from("projetos")
+      .insert({
+        titulo,
+        descricao,
+        publico,
+        dev_id: user.id
+      })
+      .select()
+      .single();
 
-  data.forEach(p => {
-    container.innerHTML += `
-      <div class="project">
-        <strong>${p.title}</strong>
-        <p>${p.description}</p>
-      </div>
-    `;
-  });
-}
-loadProjects();
+    if (error) {
+      alert(error.message);
+      return;
+    }
 
-async function logout() {
-  await supabase.auth.signOut();
-  location.href = "../index.html";
-}
+    await supabase.from("termos_projeto").insert({
+      projeto_id: data.id,
+      aceito: true
+    });
+
+    document.getElementById("titulo").value = "";
+    document.getElementById("descricao").value = "";
+    document.getElementById("termo").checked = false;
+
+    carregarProjetos();
+  };
+
+  // =========================
+  // LISTAR PROJETOS
+  // =========================
+  async function carregarProjetos() {
+    const { data, error } = await supabase
+      .from("projetos")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    const div = document.getElementById("listaProjetos");
+    div.innerHTML = "";
+
+    if (!data || data.length === 0) {
+      div.innerHTML = "<small>Nenhum projeto ainda.</small>";
+      return;
+    }
+
+    data.forEach(p => {
+      div.innerHTML += `
+        <div class="projeto">
+          <strong>${p.titulo}</strong><br />
+          <small>${p.descricao}</small><br />
+          <small>Público: ${p.publico ? "Sim" : "Não"}</small>
+        </div>
+      `;
+    });
+  }
+
+  // =========================
+  // LISTAR CONTATOS
+  // =========================
+  async function carregarContatos() {
+    const { data, error } = await supabase
+      .from("contatos")
+      .select("mensagem, created_at, projetos(titulo)")
+      .order("created_at", { ascending: false });
+
+    const div = document.getElementById("listaContatos");
+    div.innerHTML = "";
+
+    if (!data || data.length === 0) {
+      div.innerHTML = "<small>Nenhum contato recebido.</small>";
+      return;
+    }
+
+    data.forEach(c => {
+      div.innerHTML += `
+        <div class="projeto">
+          <strong>${c.projetos.titulo}</strong><br />
+          <small>${c.mensagem}</small>
+        </div>
+      `;
+    });
+  }
+
+  carregarProjetos();
+  carregarContatos();
 </script>
 
 </body>
