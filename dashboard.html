@@ -1,116 +1,48 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>SmartDevs - Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
-  <style>
-    body { font-family: Arial; background:#f5f5f5; margin:0; padding:0;}
-    header { background:#0f172a; color:#fff; padding:20px; text-align:center;}
-    nav a { color:#fff; margin:0 10px; text-decoration:none;}
-    h2 { text-align:center; margin:20px 0;}
-    .cards-container { display:flex; flex-wrap:wrap; justify-content:center; gap:20px; padding:0 20px;}
-    .card { background:#fff; border-radius:10px; width:250px; box-shadow:0 2px 10px rgba(0,0,0,0.1); padding:20px; display:flex; flex-direction:column; justify-content:space-between;}
-    .card h3 { margin-top:0; color:#0f172a;}
-    .card p { font-size:14px; margin:10px 0;}
-    .card .tech { font-size:12px; color:#555; margin-bottom:10px;}
-    .card button { padding:8px; margin-top:5px; background:#0f172a; color:#fff; border:none; cursor:pointer; border-radius:5px; font-size:14px;}
-    .card button:hover { background:#1e293b;}
-    form { max-width:400px; margin:20px auto; background:#fff; padding:20px; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,0.1);}
-    input, button.add-project { display:block; width:100%; margin-bottom:10px; padding:10px; font-size:14px;}
-    button.add-project { background:#0f172a; color:#fff; border:none; cursor:pointer;}
-    button.add-project:hover { background:#1e293b;}
-  </style>
+<meta charset="UTF-8">
+<title>Dashboard Dev</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-  <header>
-    <h1>SmartDevs Dashboard</h1>
-    <nav>
-      <a href="index.html">Home</a>
-      <a href="login.html" id="btnSair">Sair</a>
-    </nav>
-  </header>
 
-  <h2>Seus Projetos</h2>
+<h2>Meus Projetos</h2>
 
-  <form id="novoProjetoForm">
-    <input type="text" id="nomeProjeto" placeholder="Nome do projeto" required>
-    <input type="text" id="descricaoProjeto" placeholder="Descrição" required>
-    <input type="text" id="techProjeto" placeholder="Tecnologias" required>
-    <input type="email" id="contatoProjeto" placeholder="Email de contato" required>
-    <button type="submit" class="add-project">Adicionar Projeto</button>
-  </form>
+<input id="nome" placeholder="Nome">
+<input id="desc" placeholder="Descrição">
+<input id="tech" placeholder="Tech">
+<input id="contato" placeholder="Contato">
+<button onclick="add()">Adicionar</button>
 
-  <div class="cards-container" id="meusProjetos"></div>
+<div id="lista"></div>
 
-  <script>
-    const supabaseUrl = 'https://ynirlpziolginasusolb.supabase.co';
-    const supabaseKey = 'sb_publishable_1cX1yB_sA5aAodDbArwrCw_J6OxoK3l';
-    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+<script>
+const sb=supabase.createClient(
+'https://ynirlpziolginasusolb.supabase.co',
+'sb_publishable_1cX1yB_sA5aAodDbArwrCw_J6OxoK3l'
+);
 
-    const usuario_id = localStorage.getItem('usuario_id');
-    if(!usuario_id) window.location.href = "login.html";
+const dev=localStorage.getItem('dev');
+if(!dev)location.href='login.html';
 
-    const container = document.getElementById("meusProjetos");
-    const form = document.getElementById("novoProjetoForm");
-    const btnSair = document.getElementById("btnSair");
-
-    btnSair.addEventListener("click", () => localStorage.removeItem('usuario_id'));
-
-    async function carregarProjetos() {
-      const { data: projetos, error } = await supabase
-        .from('projetos')
-        .select('*')
-        .eq('usuario_id', usuario_id)
-        .order('criado_em', { ascending: false });
-
-      if(error) return console.error(error);
-
-      container.innerHTML = "";
-      projetos.forEach((projeto) => {
-        const card = document.createElement("div");
-        card.classList.add("card");
-        card.innerHTML = `
-          <h3>${projeto.nome}</h3>
-          <p>${projeto.descricao}</p>
-          <div class="tech">Tecnologias: ${projeto.tech}</div>
-          <div>Contato: ${projeto.contato}</div>
-          <button onclick="removerProjeto(${projeto.id})">Remover</button>
-        `;
-        container.appendChild(card);
-      });
-    }
-
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const nome = document.getElementById("nomeProjeto").value;
-      const descricao = document.getElementById("descricaoProjeto").value;
-      const tech = document.getElementById("techProjeto").value;
-      const contato = document.getElementById("contatoProjeto").value;
-
-      const { data, error } = await supabase
-        .from('projetos')
-        .insert([{ nome, descricao, tech, contato, usuario_id }]);
-
-      if(error) return console.error(error);
-
-      form.reset();
-      carregarProjetos();
-    });
-
-    async function removerProjeto(id) {
-      const { error } = await supabase
-        .from('projetos')
-        .delete()
-        .eq('id', id)
-        .eq('usuario_id', usuario_id);
-
-      if(error) return console.error(error);
-      carregarProjetos();
-    }
-
-    carregarProjetos();
-  </script>
+async function load(){
+const {data}=await sb.from('projetos').select('*').eq('usuario_id',dev);
+lista.innerHTML=data.map(p=>`
+<p>${p.nome} <button onclick="del(${p.id})">X</button></p>
+`).join('');
+}
+async function add(){
+await sb.from('projetos').insert({
+usuario_id:dev,nome:nome.value,descricao:desc.value,tech:tech.value,contato:contato.value
+});
+load();
+}
+async function del(id){
+await sb.from('projetos').delete().eq('id',id);
+load();
+}
+load();
+</script>
 </body>
 </html>
