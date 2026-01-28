@@ -1,114 +1,126 @@
-<script type="module">
-  import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-  // =========================
-  // CONFIG
-  // =========================
-  const SUPABASE_URL = "https://ynirlpziolginasusolb.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_1cX1yB_sA5aAodDbArwrCw_J6OxoK3l";
+// ===============================
+// 🔐 CONFIG SUPABASE
+// ===============================
+const SUPABASE_URL = "https://ynirlpziolginasusolb.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_1cX1yB_sA5aAodDbArwrCw_J6OxoK3l";
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const supabase = createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
 
-  // =========================
-  // HELPERS
-  // =========================
-  async function getProfile(userId) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("tipo")
-      .eq("id", userId)
-      .single();
+// ===============================
+// 🔄 VERIFICAR SESSÃO
+// ===============================
+export async function verificarSessao() {
+  const { data } = await supabase.auth.getSession();
+  return data.session;
+}
 
-    if (error) return null;
-    return data.tipo;
+// ===============================
+// 🔐 PROTEGER PÁGINAS
+// ===============================
+export async function protegerPagina(tipoEsperado) {
+  const session = await verificarSessao();
+
+  if (!session) {
+    window.location.href = "login.html";
+    return;
   }
 
-  // =========================
-  // LOGIN
-  // =========================
-  window.login = async function () {
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
+  const userId = session.user.id;
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+  const { data: perfil } = await supabase
+    .from("perfis")
+    .select("tipo")
+    .eq("user_id", userId)
+    .single();
 
-    if (error) {
-      alert(error.message);
-      return;
-    }
+  if (!perfil || perfil.tipo !== tipoEsperado) {
+    window.location.href = "index.html";
+  }
+}
 
-    const tipo = await getProfile(data.user.id);
+// ===============================
+// 🔑 LOGIN
+// ===============================
+window.login = async function () {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
 
-    if (tipo === "dev") {
-      window.location.href = "/dashboard/dev.html";
-    } else if (tipo === "empresa") {
-      window.location.href = "/dashboard/empresa.html";
-    } else {
-      alert("Perfil não encontrado.");
-    }
-  };
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
 
-  // =========================
-  // CADASTRO
-  // =========================
-  window.register = async function (tipo) {
-    const nome = document.getElementById("nome").value;
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
+  if (error) {
+    alert("Erro ao entrar: " + error.message);
+    return;
+  }
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+  const { data: perfil } = await supabase
+    .from("perfis")
+    .select("tipo")
+    .single();
 
-    if (error) {
-      alert(error.message);
-      return;
-    }
+  if (perfil.tipo === "dev") {
+    window.location.href = "dashboard.html";
+  } else {
+    window.location.href = "empresa-dashboard.html";
+  }
+};
 
-    const { error: profileError } = await supabase.from("profiles").insert({
-      id: data.user.id,
-      tipo,
-      nome,
-    });
+// ===============================
+// 🆕 CADASTRO
+// ===============================
+window.cadastrar = async function (tipo) {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+  const nome = document.getElementById("nome").value;
 
-    if (profileError) {
-      alert(profileError.message);
-      return;
-    }
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password
+  });
 
-    alert("Cadastro realizado com sucesso! Faça login.");
-    window.location.href = "/login.html";
-  };
+  if (error) {
+    alert("Erro no cadastro: " + error.message);
+    return;
+  }
 
-  // =========================
-  // PROTEÇÃO DE PÁGINA
-  // =========================
-  window.protectPage = async function (tipoEsperado) {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+  await supabase.from("perfis").insert({
+    user_id: data.user.id,
+    nome,
+    tipo // 'dev' ou 'empresa'
+  });
 
-    if (!session) {
-      window.location.href = "/login.html";
-      return;
-    }
+  alert("Cadastro criado! Faça login.");
+  window.location.href = "login.html";
+};
 
-    const tipo = await getProfile(session.user.id);
+// ===============================
+// 🔁 RECUPERAR SENHA
+// ===============================
+window.recuperarSenha = async function () {
+  const email = document.getElementById("email").value;
 
-    if (tipo !== tipoEsperado) {
-      window.location.href = "/login.html";
-    }
-  };
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + "/login.html"
+  });
 
-  // =========================
-  // LOGOUT
-  // =========================
-  window.logout = async function () {
-    await supabase.auth.signOut();
-    window.location.href = "/login.html";
-  };
-</script>
+  if (error) {
+    alert("Erro ao enviar email");
+  } else {
+    alert("Email de recuperação enviado");
+  }
+};
+
+// ===============================
+// 🚪 LOGOUT
+// ===============================
+window.logout = async function () {
+  await supabase.auth.signOut();
+  window.location.href = "index.html";
+};
