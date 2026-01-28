@@ -8,132 +8,154 @@
 </head>
 <body>
 
-  <header>
-    <h1>Dashboard do Desenvolvedor</h1>
-    <button onclick="logout()">Sair</button>
-  </header>
+<header>
+  <h1>Dashboard do Desenvolvedor</h1>
+  <button onclick="logout()">Sair</button>
+</header>
 
-  <main>
-    <!-- CRIAR PROJETO -->
-    <section>
-      <h2>Novo Projeto</h2>
-      <input type="text" id="titulo" placeholder="Título do projeto" />
-      <textarea id="descricao" placeholder="Descrição"></textarea>
-      <input type="number" id="preco" placeholder="Preço (opcional)" />
-      <button onclick="criarProjeto()">Criar Projeto</button>
-    </section>
+<main>
 
-    <!-- MEUS PROJETOS -->
-    <section>
-      <h2>Meus Projetos</h2>
-      <ul id="lista-projetos"></ul>
-    </section>
+  <!-- NOVO PROJETO -->
+  <section>
+    <h2>Novo Projeto</h2>
 
-    <!-- CONTATOS -->
-    <section>
-      <h2>Contatos de Empresas</h2>
-      <ul id="lista-contatos"></ul>
-    </section>
-  </main>
+    <input type="text" id="titulo" placeholder="Título do projeto" />
+    <textarea id="descricao" placeholder="Descrição do projeto"></textarea>
+    <input type="number" id="preco" placeholder="Preço (opcional)" />
 
-  <!-- AUTH -->
-  <script type="module" src="auth.js"></script>
+    <label style="display:block;margin:10px 0;">
+      <input type="checkbox" id="aceite-termos" />
+      Li e aceito os <a href="termos.html" target="_blank">Termos de Uso</a>
+    </label>
 
-  <!-- DASHBOARD DEV -->
-  <script type="module">
-    import { supabase, protegerPagina } from "./auth.js";
+    <button onclick="criarProjeto()">Publicar Projeto</button>
+  </section>
 
-    // 🔐 proteger página
-    await protegerPagina("dev");
+  <!-- MEUS PROJETOS -->
+  <section>
+    <h2>Meus Projetos</h2>
+    <ul id="lista-projetos"></ul>
+  </section>
 
-    // =========================
-    // 🔎 BUSCAR PERFIL DEV
-    // =========================
-    const { data: perfil } = await supabase
-      .from("perfis")
+  <!-- CONTATOS -->
+  <section>
+    <h2>Contatos de Empresas</h2>
+    <ul id="lista-contatos"></ul>
+  </section>
+
+</main>
+
+<script type="module" src="auth.js"></script>
+
+<script type="module">
+  import { supabase, protegerPagina } from "./auth.js";
+
+  await protegerPagina("dev");
+
+  // PERFIL DEV
+  const { data: perfil } = await supabase
+    .from("perfis")
+    .select("id")
+    .single();
+
+  const devId = perfil.id;
+
+  // VERIFICAR ACEITE
+  async function verificarAceite() {
+    const { data } = await supabase
+      .from("termos_aceite")
       .select("id")
       .single();
 
-    const devId = perfil.id;
+    return !!data;
+  }
 
-    // =========================
-    // 📦 CARREGAR PROJETOS
-    // =========================
-    async function carregarProjetos() {
-      const { data } = await supabase
-        .from("projetos")
-        .select("*")
-        .eq("dev_id", devId)
-        .order("created_at", { ascending: false });
+  // CRIAR PROJETO
+  window.criarProjeto = async function () {
+    const titulo = document.getElementById("titulo").value;
+    const descricao = document.getElementById("descricao").value;
+    const preco = document.getElementById("preco").value || null;
+    const aceito = document.getElementById("aceite-termos").checked;
 
-      const lista = document.getElementById("lista-projetos");
-      lista.innerHTML = "";
+    if (!titulo || !descricao) {
+      alert("Preencha título e descrição");
+      return;
+    }
 
-      data.forEach(p => {
-        const li = document.createElement("li");
-        li.innerHTML = `<strong>${p.titulo}</strong> - ${p.descricao}`;
-        lista.appendChild(li);
+    if (!aceito) {
+      alert("Você precisa aceitar os termos para publicar.");
+      return;
+    }
+
+    const jaAceitou = await verificarAceite();
+
+    if (!jaAceitou) {
+      const user = (await supabase.auth.getUser()).data.user;
+      await supabase.from("termos_aceite").insert({
+        user_id: user.id
       });
     }
 
-    // =========================
-    // ➕ CRIAR PROJETO
-    // =========================
-    window.criarProjeto = async function () {
-      const titulo = document.getElementById("titulo").value;
-      const descricao = document.getElementById("descricao").value;
-      const preco = document.getElementById("preco").value || null;
+    await supabase.from("projetos").insert({
+      dev_id: devId,
+      titulo,
+      descricao,
+      preco
+    });
 
-      if (!titulo || !descricao) {
-        alert("Preencha título e descrição");
-        return;
-      }
-
-      await supabase.from("projetos").insert({
-        dev_id: devId,
-        titulo,
-        descricao,
-        preco
-      });
-
-      document.getElementById("titulo").value = "";
-      document.getElementById("descricao").value = "";
-      document.getElementById("preco").value = "";
-
-      carregarProjetos();
-    };
-
-    // =========================
-    // 📬 CARREGAR CONTATOS
-    // =========================
-    async function carregarContatos() {
-      const { data } = await supabase
-        .from("contatos")
-        .select(`
-          mensagem,
-          created_at,
-          projetos ( titulo ),
-          perfis ( nome )
-        `)
-        .order("created_at", { ascending: false });
-
-      const lista = document.getElementById("lista-contatos");
-      lista.innerHTML = "";
-
-      data.forEach(c => {
-        const li = document.createElement("li");
-        li.innerHTML = `
-          <strong>${c.perfis.nome}</strong> 
-          sobre <em>${c.projetos.titulo}</em><br/>
-          ${c.mensagem}
-        `;
-        lista.appendChild(li);
-      });
-    }
+    document.getElementById("titulo").value = "";
+    document.getElementById("descricao").value = "";
+    document.getElementById("preco").value = "";
+    document.getElementById("aceite-termos").checked = false;
 
     carregarProjetos();
-    carregarContatos();
-  </script>
+  };
+
+  // CARREGAR PROJETOS
+  async function carregarProjetos() {
+    const { data } = await supabase
+      .from("projetos")
+      .select("*")
+      .eq("dev_id", devId)
+      .order("created_at", { ascending: false });
+
+    const lista = document.getElementById("lista-projetos");
+    lista.innerHTML = "";
+
+    data.forEach(p => {
+      const li = document.createElement("li");
+      li.innerHTML = `<strong>${p.titulo}</strong><br>${p.descricao}`;
+      lista.appendChild(li);
+    });
+  }
+
+  // CONTATOS
+  async function carregarContatos() {
+    const { data } = await supabase
+      .from("contatos")
+      .select(`
+        mensagem,
+        projetos ( titulo ),
+        perfis ( nome )
+      `)
+      .order("created_at", { ascending: false });
+
+    const lista = document.getElementById("lista-contatos");
+    lista.innerHTML = "";
+
+    data.forEach(c => {
+      const li = document.createElement("li");
+      li.innerHTML = `
+        <strong>${c.perfis.nome}</strong> sobre <em>${c.projetos.titulo}</em><br>
+        ${c.mensagem}
+      `;
+      lista.appendChild(li);
+    });
+  }
+
+  carregarProjetos();
+  carregarContatos();
+</script>
 
 </body>
 </html>
