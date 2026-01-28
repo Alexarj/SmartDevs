@@ -8,127 +8,120 @@
 </head>
 <body>
 
-  <header>
-    <h1>Dashboard da Empresa</h1>
-    <button onclick="logout()">Sair</button>
-  </header>
+<header>
+  <h1>Dashboard da Empresa</h1>
+  <button onclick="logout()">Sair</button>
+</header>
 
-  <main>
-    <!-- VITRINE -->
-    <section>
-      <h2>Projetos Disponíveis</h2>
-      <ul id="lista-projetos"></ul>
-    </section>
+<main>
 
-    <!-- CONTATOS -->
-    <section>
-      <h2>Meus Contatos Enviados</h2>
-      <ul id="lista-contatos"></ul>
-    </section>
-  </main>
+  <section>
+    <h2>Projetos</h2>
+    <ul id="lista-projetos"></ul>
+  </section>
 
-  <!-- AUTH -->
-  <script type="module" src="auth.js"></script>
+  <section>
+    <h2>Minhas Conversas</h2>
+    <ul id="lista-chats"></ul>
+  </section>
 
-  <!-- DASHBOARD EMPRESA -->
-  <script type="module">
-    import { supabase, protegerPagina } from "./auth.js";
+  <section id="chat-box" style="display:none;">
+    <h2>Chat</h2>
+    <div id="mensagens"></div>
+    <textarea id="nova-mensagem" placeholder="Digite sua mensagem"></textarea>
+    <button onclick="enviarMensagem()">Enviar</button>
+  </section>
 
-    // 🔐 proteger página
-    await protegerPagina("empresa");
+</main>
 
-    // =========================
-    // 🔎 PERFIL EMPRESA
-    // =========================
-    const { data: perfil } = await supabase
-      .from("perfis")
-      .select("id")
-      .single();
+<script type="module" src="auth.js"></script>
 
-    const empresaId = perfil.id;
+<script type="module">
+import { supabase, protegerPagina } from "./auth.js";
+await protegerPagina("empresa");
 
-    // =========================
-    // 📦 CARREGAR PROJETOS
-    // =========================
-    async function carregarProjetos() {
-      const { data } = await supabase
-        .from("projetos")
-        .select(`
-          id,
-          titulo,
-          descricao,
-          preco,
-          perfis ( nome )
-        `)
-        .order("created_at", { ascending: false });
+const user = (await supabase.auth.getUser()).data.user;
+let chatAtual = null;
 
-      const lista = document.getElementById("lista-projetos");
-      lista.innerHTML = "";
+// LISTAR PROJETOS
+async function carregarProjetos() {
+  const { data } = await supabase.from("projetos")
+    .select("id, titulo, perfis (id, nome)");
 
-      data.forEach(p => {
-        const li = document.createElement("li");
-        li.innerHTML = `
-          <strong>${p.titulo}</strong><br/>
-          ${p.descricao}<br/>
-          <em>Dev: ${p.perfis.nome}</em><br/>
-          <textarea id="msg-${p.id}" placeholder="Mensagem para o desenvolvedor"></textarea><br/>
-          <button onclick="enviarContato('${p.id}')">Entrar em contato</button>
-        `;
-        lista.appendChild(li);
-      });
-    }
+  const ul = document.getElementById("lista-projetos");
+  ul.innerHTML = "";
 
-    // =========================
-    // ✉️ ENVIAR CONTATO
-    // =========================
-    window.enviarContato = async function (projetoId) {
-      const mensagem = document.getElementById(`msg-${projetoId}`).value;
+  data.forEach(p => {
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <strong>${p.titulo}</strong><br>
+      <button onclick="abrirChat('${p.id}', '${p.perfis.id}')">
+        Falar com o Dev
+      </button>
+    `;
+    ul.appendChild(li);
+  });
+}
 
-      if (!mensagem) {
-        alert("Digite uma mensagem");
-        return;
-      }
+// ABRIR / CRIAR CHAT
+window.abrirChat = async (projetoId, devId) => {
+  let { data } = await supabase
+    .from("chats")
+    .select("*")
+    .eq("projeto_id", projetoId)
+    .eq("empresa_id", user.id)
+    .single();
 
-      await supabase.from("contatos").insert({
-        projeto_id: projetoId,
-        empresa_id: empresaId,
-        mensagem
-      });
+  if (!data) {
+    const res = await supabase.from("chats").insert({
+      projeto_id: projetoId,
+      dev_id: devId,
+      empresa_id: user.id
+    }).select().single();
 
-      alert("Mensagem enviada ao desenvolvedor!");
-      carregarContatos();
-    };
+    data = res.data;
+  }
 
-    // =========================
-    // 📬 MEUS CONTATOS
-    // =========================
-    async function carregarContatos() {
-      const { data } = await supabase
-        .from("contatos")
-        .select(`
-          mensagem,
-          created_at,
-          projetos ( titulo )
-        `)
-        .eq("empresa_id", empresaId)
-        .order("created_at", { ascending: false });
+  chatAtual = data.id;
+  document.getElementById("chat-box").style.display = "block";
+  carregarMensagens();
+};
 
-      const lista = document.getElementById("lista-contatos");
-      lista.innerHTML = "";
+// MENSAGENS
+async function carregarMensagens() {
+  const { data } = await supabase
+    .from("mensagens_chat")
+    .select("mensagem, remetente_id")
+    .eq("chat_id", chatAtual)
+    .order("created_at");
 
-      data.forEach(c => {
-        const li = document.createElement("li");
-        li.innerHTML = `
-          <strong>${c.projetos.titulo}</strong><br/>
-          ${c.mensagem}
-        `;
-        lista.appendChild(li);
-      });
-    }
+  const div = document.getElementById("mensagens");
+  div.innerHTML = "";
 
-    carregarProjetos();
-    carregarContatos();
-  </script>
+  data.forEach(m => {
+    const p = document.createElement("p");
+    p.textContent = m.mensagem;
+    div.appendChild(p);
+  });
+}
+
+// ENVIAR
+window.enviarMensagem = async () => {
+  const msg = document.getElementById("nova-mensagem").value;
+  if (!msg) return;
+
+  await supabase.from("mensagens_chat").insert({
+    chat_id: chatAtual,
+    remetente_id: user.id,
+    mensagem: msg
+  });
+
+  document.getElementById("nova-mensagem").value = "";
+  carregarMensagens();
+};
+
+carregarProjetos();
+</script>
 
 </body>
 </html>
