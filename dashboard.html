@@ -18,9 +18,8 @@
   <!-- NOVO PROJETO -->
   <section>
     <h2>Novo Projeto</h2>
-
     <input type="text" id="titulo" placeholder="Título do projeto" />
-    <textarea id="descricao" placeholder="Descrição"></textarea>
+    <textarea id="descricao" placeholder="Descrição do projeto"></textarea>
     <input type="number" id="preco" placeholder="Preço (opcional)" />
 
     <label style="display:block;margin:10px 0;">
@@ -46,7 +45,9 @@
   <!-- CHAT -->
   <section id="chat-box" style="display:none;">
     <h2>Chat</h2>
-    <div id="mensagens" style="border:1px solid #ccc;padding:10px;height:200px;overflow-y:auto;"></div>
+    <div id="mensagens"
+      style="border:1px solid #ccc;padding:10px;height:250px;overflow-y:auto;margin-bottom:10px;">
+    </div>
     <textarea id="nova-mensagem" placeholder="Digite sua mensagem"></textarea>
     <button onclick="enviarMensagem()">Enviar</button>
   </section>
@@ -58,15 +59,21 @@
 <script type="module">
 import { supabase, protegerPagina } from "./auth.js";
 
-// 🔐 proteger página
+/* =========================
+   SEGURANÇA
+========================= */
 await protegerPagina("dev");
-
 const user = (await supabase.auth.getUser()).data.user;
-let chatAtual = null;
 
-// ========================
-// PERFIL DEV
-// ========================
+/* =========================
+   VARIÁVEIS
+========================= */
+let chatAtual = null;
+let canalRealtime = null;
+
+/* =========================
+   PERFIL DEV
+========================= */
 const { data: perfil } = await supabase
   .from("perfis")
   .select("id")
@@ -74,9 +81,9 @@ const { data: perfil } = await supabase
 
 const devId = perfil.id;
 
-// ========================
-// ACEITE DOS TERMOS
-// ========================
+/* =========================
+   ACEITE DOS TERMOS
+========================= */
 async function verificarAceite() {
   const { data } = await supabase
     .from("termos_aceite")
@@ -85,12 +92,12 @@ async function verificarAceite() {
   return !!data;
 }
 
-// ========================
-// CRIAR PROJETO
-// ========================
-window.criarProjeto = async function () {
-  const titulo = document.getElementById("titulo").value;
-  const descricao = document.getElementById("descricao").value;
+/* =========================
+   CRIAR PROJETO
+========================= */
+window.criarProjeto = async () => {
+  const titulo = document.getElementById("titulo").value.trim();
+  const descricao = document.getElementById("descricao").value.trim();
   const preco = document.getElementById("preco").value || null;
   const aceito = document.getElementById("aceite-termos").checked;
 
@@ -100,7 +107,7 @@ window.criarProjeto = async function () {
   }
 
   if (!aceito) {
-    alert("Aceite os termos para publicar");
+    alert("Você precisa aceitar os termos");
     return;
   }
 
@@ -126,9 +133,9 @@ window.criarProjeto = async function () {
   carregarProjetos();
 };
 
-// ========================
-// PROJETOS
-// ========================
+/* =========================
+   LISTAR PROJETOS
+========================= */
 async function carregarProjetos() {
   const { data } = await supabase
     .from("projetos")
@@ -145,9 +152,9 @@ async function carregarProjetos() {
   });
 }
 
-// ========================
-// CHATS DO DEV
-// ========================
+/* =========================
+   LISTAR CHATS
+========================= */
 async function carregarChats() {
   const { data } = await supabase
     .from("chats")
@@ -172,40 +179,75 @@ async function carregarChats() {
   });
 }
 
-// ========================
-// ABRIR CHAT
-// ========================
-window.abrirChat = async function (chatId) {
+/* =========================
+   REALTIME
+========================= */
+function iniciarRealtime(chatId) {
+  if (canalRealtime) {
+    supabase.removeChannel(canalRealtime);
+  }
+
+  canalRealtime = supabase
+    .channel("chat-" + chatId)
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "mensagens_chat",
+        filter: `chat_id=eq.${chatId}`
+      },
+      payload => {
+        adicionarMensagem(payload.new);
+      }
+    )
+    .subscribe();
+}
+
+/* =========================
+   CHAT
+========================= */
+window.abrirChat = async chatId => {
   chatAtual = chatId;
   document.getElementById("chat-box").style.display = "block";
-  carregarMensagens();
-};
-
-// ========================
-// MENSAGENS
-// ========================
-async function carregarMensagens() {
-  const { data } = await supabase
-    .from("mensagens_chat")
-    .select("mensagem, remetente_id")
-    .eq("chat_id", chatAtual)
-    .order("created_at");
 
   const div = document.getElementById("mensagens");
   div.innerHTML = "";
 
-  data.forEach(m => {
-    const p = document.createElement("p");
-    p.textContent = m.mensagem;
-    div.appendChild(p);
-  });
+  const { data } = await supabase
+    .from("mensagens_chat")
+    .select("*")
+    .eq("chat_id", chatId)
+    .order("created_at");
+
+  data.forEach(adicionarMensagem);
+  iniciarRealtime(chatId);
+};
+
+function adicionarMensagem(m) {
+  const div = document.getElementById("mensagens");
+  const p = document.createElement("p");
+
+  p.textContent = m.mensagem;
+  p.style.margin = "6px 0";
+  p.style.padding = "6px 10px";
+  p.style.borderRadius = "6px";
+
+  if (m.remetente_id === user.id) {
+    p.style.background = "#2563eb";
+    p.style.color = "#fff";
+    p.style.textAlign = "right";
+  } else {
+    p.style.background = "#e5e7eb";
+  }
+
+  div.appendChild(p);
+  div.scrollTop = div.scrollHeight;
 }
 
-// ========================
-// ENVIAR MENSAGEM
-// ========================
-window.enviarMensagem = async function () {
-  const msg = document.getElementById("nova-mensagem").value;
+window.enviarMensagem = async () => {
+  const input = document.getElementById("nova-mensagem");
+  const msg = input.value.trim();
   if (!msg) return;
 
   await supabase.from("mensagens_chat").insert({
@@ -214,10 +256,12 @@ window.enviarMensagem = async function () {
     mensagem: msg
   });
 
-  document.getElementById("nova-mensagem").value = "";
-  carregarMensagens();
+  input.value = "";
 };
 
+/* =========================
+   INIT
+========================= */
 carregarProjetos();
 carregarChats();
 </script>
