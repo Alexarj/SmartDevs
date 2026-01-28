@@ -45,11 +45,15 @@
   <!-- CHAT -->
   <section id="chat-box" style="display:none;">
     <h2>Chat</h2>
-    <div id="mensagens"
-      style="border:1px solid #ccc;padding:10px;height:250px;overflow-y:auto;margin-bottom:10px;">
-    </div>
+    <div id="mensagens" style="border:1px solid #ccc;padding:10px;height:250px;overflow-y:auto;margin-bottom:10px;"></div>
     <textarea id="nova-mensagem" placeholder="Digite sua mensagem"></textarea>
     <button onclick="enviarMensagem()">Enviar</button>
+  </section>
+
+  <!-- VENDAS -->
+  <section>
+    <h2>Minhas Vendas</h2>
+    <ul id="lista-vendas"></ul>
   </section>
 
 </main>
@@ -59,31 +63,23 @@
 <script type="module">
 import { supabase, protegerPagina } from "./auth.js";
 
-/* =========================
-   SEGURANÇA
-========================= */
 await protegerPagina("dev");
 const user = (await supabase.auth.getUser()).data.user;
 
-/* =========================
-   VARIÁVEIS
-========================= */
 let chatAtual = null;
 let canalRealtime = null;
 
-/* =========================
-   PERFIL DEV
-========================= */
+// Comissão plataforma 20%
+const VALOR_COMISSAO = 0.20;
+
+// PERFIL DEV
 const { data: perfil } = await supabase
   .from("perfis")
   .select("id")
   .single();
-
 const devId = perfil.id;
 
-/* =========================
-   ACEITE DOS TERMOS
-========================= */
+// ACEITE TERMOS
 async function verificarAceite() {
   const { data } = await supabase
     .from("termos_aceite")
@@ -92,38 +88,20 @@ async function verificarAceite() {
   return !!data;
 }
 
-/* =========================
-   CRIAR PROJETO
-========================= */
+// CRIAR PROJETO
 window.criarProjeto = async () => {
   const titulo = document.getElementById("titulo").value.trim();
   const descricao = document.getElementById("descricao").value.trim();
   const preco = document.getElementById("preco").value || null;
   const aceito = document.getElementById("aceite-termos").checked;
 
-  if (!titulo || !descricao) {
-    alert("Preencha título e descrição");
-    return;
-  }
-
-  if (!aceito) {
-    alert("Você precisa aceitar os termos");
-    return;
-  }
+  if (!titulo || !descricao) { alert("Preencha título e descrição"); return; }
+  if (!aceito) { alert("Aceite os termos"); return; }
 
   const jaAceitou = await verificarAceite();
-  if (!jaAceitou) {
-    await supabase.from("termos_aceite").insert({
-      user_id: user.id
-    });
-  }
+  if (!jaAceitou) await supabase.from("termos_aceite").insert({ user_id: user.id });
 
-  await supabase.from("projetos").insert({
-    dev_id: devId,
-    titulo,
-    descricao,
-    preco
-  });
+  await supabase.from("projetos").insert({ dev_id: devId, titulo, descricao, preco });
 
   document.getElementById("titulo").value = "";
   document.getElementById("descricao").value = "";
@@ -133,18 +111,11 @@ window.criarProjeto = async () => {
   carregarProjetos();
 };
 
-/* =========================
-   LISTAR PROJETOS
-========================= */
+// LISTAR PROJETOS
 async function carregarProjetos() {
-  const { data } = await supabase
-    .from("projetos")
-    .select("*")
-    .eq("dev_id", devId);
-
+  const { data } = await supabase.from("projetos").select("*").eq("dev_id", devId);
   const ul = document.getElementById("lista-projetos");
   ul.innerHTML = "";
-
   data.forEach(p => {
     const li = document.createElement("li");
     li.innerHTML = `<strong>${p.titulo}</strong><br>${p.descricao}`;
@@ -152,22 +123,16 @@ async function carregarProjetos() {
   });
 }
 
-/* =========================
-   LISTAR CHATS
-========================= */
+// LISTAR CHATS
 async function carregarChats() {
-  const { data } = await supabase
-    .from("chats")
-    .select(`
-      id,
-      projetos ( titulo ),
-      perfis ( nome )
-    `)
-    .eq("dev_id", user.id);
+  const { data } = await supabase.from("chats").select(`
+    id,
+    projetos ( titulo ),
+    perfis ( nome )
+  `).eq("dev_id", user.id);
 
   const ul = document.getElementById("lista-chats");
   ul.innerHTML = "";
-
   data.forEach(c => {
     const li = document.createElement("li");
     li.innerHTML = `
@@ -179,34 +144,23 @@ async function carregarChats() {
   });
 }
 
-/* =========================
-   REALTIME
-========================= */
+// CHAT EM TEMPO REAL
 function iniciarRealtime(chatId) {
-  if (canalRealtime) {
-    supabase.removeChannel(canalRealtime);
-  }
+  if (canalRealtime) supabase.removeChannel(canalRealtime);
 
   canalRealtime = supabase
     .channel("chat-" + chatId)
-    .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "mensagens_chat",
-        filter: `chat_id=eq.${chatId}`
-      },
-      payload => {
-        adicionarMensagem(payload.new);
-      }
-    )
+    .on("postgres_changes", {
+      event: "INSERT",
+      schema: "public",
+      table: "mensagens_chat",
+      filter: `chat_id=eq.${chatId}`
+    }, payload => {
+      adicionarMensagem(payload.new);
+    })
     .subscribe();
 }
 
-/* =========================
-   CHAT
-========================= */
 window.abrirChat = async chatId => {
   chatAtual = chatId;
   document.getElementById("chat-box").style.display = "block";
@@ -214,8 +168,7 @@ window.abrirChat = async chatId => {
   const div = document.getElementById("mensagens");
   div.innerHTML = "";
 
-  const { data } = await supabase
-    .from("mensagens_chat")
+  const { data } = await supabase.from("mensagens_chat")
     .select("*")
     .eq("chat_id", chatId)
     .order("created_at");
@@ -227,7 +180,6 @@ window.abrirChat = async chatId => {
 function adicionarMensagem(m) {
   const div = document.getElementById("mensagens");
   const p = document.createElement("p");
-
   p.textContent = m.mensagem;
   p.style.margin = "6px 0";
   p.style.padding = "6px 10px";
@@ -259,12 +211,33 @@ window.enviarMensagem = async () => {
   input.value = "";
 };
 
-/* =========================
-   INIT
-========================= */
+// LISTAR VENDAS
+async function carregarVendas() {
+  const { data } = await supabase.from("vendas")
+    .select(`
+      id,
+      projeto_id,
+      valor_total,
+      comissao,
+      data_venda,
+      projetos(titulo)
+    `)
+    .eq("dev_id", devId)
+    .order("data_venda", { ascending: false });
+
+  const ul = document.getElementById("lista-vendas");
+  ul.innerHTML = "";
+  data.forEach(v => {
+    const li = document.createElement("li");
+    li.innerHTML = `<strong>${v.projetos.titulo}</strong> - Valor: R$ ${v.valor_total} - Comissão plataforma: R$ ${v.comissao} - Data: ${new Date(v.data_venda).toLocaleString()}`;
+    ul.appendChild(li);
+  });
+}
+
 carregarProjetos();
 carregarChats();
-</script>
+carregarVendas();
 
+</script>
 </body>
-</html>
+      </html>
