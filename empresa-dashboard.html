@@ -1,32 +1,107 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Empresa</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<title>Dashboard Empresa | SmartDevs</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #020617;
+  color: #e5e7eb;
+}
+header {
+  padding: 20px;
+  border-bottom: 1px solid #1e293b;
+}
+main {
+  padding: 20px;
+  max-width: 900px;
+  margin: auto;
+}
+.card {
+  background: #0f172a;
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+.project {
+  border-bottom: 1px solid #1e293b;
+  padding: 10px 0;
+}
+button {
+  padding: 8px 12px;
+  background: #38bdf8;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.logout {
+  background: #ef4444;
+  margin-top: 20px;
+}
+</style>
 </head>
+
 <body>
 
-<h2>Projetos Disponíveis</h2>
-<div id="lista"></div>
+<header>
+  <h1>🏢 Dashboard da Empresa</h1>
+</header>
 
+<main>
+
+<div class="card">
+  <h2>Projetos Disponíveis</h2>
+  <div id="projects"></div>
+</div>
+
+<button class="logout" onclick="logout()">Sair</button>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const sb=supabase.createClient(
-'https://ynirlpziolginasusolb.supabase.co',
-'sb_publishable_1cX1yB_sA5aAodDbArwrCw_J6OxoK3l'
+const supabase = supabase.createClient(
+  "https://ynirlpziolginasusolb.supabase.co",
+  "sb_publishable_1cX1yB_sA5aAodDbArwrCw_J6OxoK3l"
 );
 
-if(!localStorage.getItem('empresa'))location.href='empresa-login.html';
-
-async function load(){
-const {data}=await sb.from('projetos').select('*');
-lista.innerHTML=data.map(p=>`
-<p>
-<b>${p.nome}</b><br>${p.descricao}<br>
-<button onclick="location.href='mailto:${p.contato}'">Contato</button>
-</p>`).join('');
+async function checkAuth() {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) location.href = "../index.html";
 }
-load();
+checkAuth();
+
+async function loadProjects() {
+  const { data } = await supabase.from("projects").select("*");
+
+  const container = document.getElementById("projects");
+  container.innerHTML = "";
+
+  data.forEach(p => {
+    container.innerHTML += `
+      <div class="project">
+        <strong>${p.title}</strong>
+        <p>${p.description}</p>
+        <button onclick="contact()">Entrar em contato</button>
+      </div>
+    `;
+  });
+}
+loadProjects();
+
+function contact() {
+  alert("Entre em contato com o desenvolvedor para negociação.");
+}
+
+async function logout() {
+  await supabase.auth.signOut();
+  location.href = "../index.html";
+}
 </script>
+
 </body>
 </html>
